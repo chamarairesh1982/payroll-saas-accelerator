@@ -413,6 +413,12 @@ const Leave = () => {
 
         {/* Leave Types Tab */}
         <TabsContent value="types" className="space-y-6">
+          <div className="flex items-center justify-end">
+            <Button onClick={() => setShowLeaveTypeModal(true)}>
+              <Plus className="h-4 w-4" />
+              Add Leave Type
+            </Button>
+          </div>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
