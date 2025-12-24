@@ -17,6 +17,7 @@ import SalaryComponents from "./pages/SalaryComponents";
 import TaxConfig from "./pages/TaxConfig";
 import Reports from "./pages/Reports";
 import Company from "./pages/Company";
+import Companies from "./pages/Companies";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -60,6 +61,7 @@ function AppRoutes() {
       <Route path="/tax-config" element={<ProtectedRoute><TaxConfig /></ProtectedRoute>} />
       <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
       <Route path="/company" element={<ProtectedRoute><Company /></ProtectedRoute>} />
+      <Route path="/companies" element={<ProtectedRoute><Companies /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />

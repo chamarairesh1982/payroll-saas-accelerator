@@ -46,9 +46,9 @@ const configNavItems: NavItem[] = [
 ];
 
 const adminNavItems: NavItem[] = [
-  { label: "Company Settings", icon: Building2, href: "/company" },
+  { label: "Companies", icon: Building2, href: "/companies" },
+  { label: "Company Settings", icon: Settings, href: "/company" },
   { label: "User Management", icon: Shield, href: "/users" },
-  { label: "System Settings", icon: Settings, href: "/settings" },
 ];
 
 export function Sidebar() {
