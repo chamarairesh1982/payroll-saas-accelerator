@@ -25,6 +25,7 @@ interface AuthContextType {
   session: Session | null;
   profile: UserProfile | null;
   userRole: UserRole | null;
+  role: AppRole | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<{ error: Error | null }>;
@@ -139,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return userRole.role === role;
   };
 
+  const role = userRole?.role ?? null;
   const isAdmin = hasRole('admin') || hasRole('super_admin');
   const isHR = hasRole('hr') || isAdmin;
   const isManager = hasRole('manager') || isHR;
@@ -150,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         profile,
         userRole,
+        role,
         loading,
         signIn,
         signUp,
