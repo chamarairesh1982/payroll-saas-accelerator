@@ -97,64 +97,18 @@ export const useEmployees = () => {
     }) => {
       if (!companyId) throw new Error("No company selected");
 
-      // Sign up the user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: {
-            first_name: data.first_name,
-            last_name: data.last_name,
-          },
-        },
-      });
+      // Create user server-side to avoid switching the current session
+      const { data: result, error } = await supabase.functions.invoke(
+        "create-employee",
+        {
+          body: data,
+        }
+      );
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error("User creation failed");
+      if (error) throw error;
+      if (result?.error) throw new Error(result.error);
 
-      // Generate employee number
-      const { count } = await supabase
-        .from("profiles")
-        .select("*", { count: "exact", head: true })
-        .eq("company_id", companyId);
-
-      const employeeNumber = `EMP${String((count || 0) + 1).padStart(3, "0")}`;
-
-      // Update profile with employee details
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({
-          company_id: companyId,
-          employee_number: employeeNumber,
-          phone: data.phone,
-          nic: data.nic,
-          date_of_birth: data.date_of_birth,
-          date_of_joining: data.date_of_joining,
-          department: data.department,
-          designation: data.designation,
-          employment_type: data.employment_type,
-          bank_name: data.bank_name,
-          bank_branch: data.bank_branch,
-          bank_account_number: data.bank_account_number,
-          epf_number: data.epf_number,
-          basic_salary: data.basic_salary,
-          status: "active",
-        })
-        .eq("id", authData.user.id);
-
-      if (profileError) throw profileError;
-
-      // Create user role as employee
-      const { error: roleError } = await supabase.from("user_roles").insert({
-        user_id: authData.user.id,
-        company_id: companyId,
-        role: "employee",
-      });
-
-      if (roleError) throw roleError;
-
-      return authData.user;
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employees", companyId] });
