@@ -17,9 +17,9 @@ export type Loan = Tables<"loans"> & {
 export type LoanRecoverySchedule = Tables<"loan_recovery_schedules">;
 
 export const loanTypes = [
-  { value: "salary_advance", label: "Salary Advance" },
-  { value: "personal_loan", label: "Personal Loan" },
-  { value: "emergency_loan", label: "Emergency Loan" },
+  { value: "salary_advance", label: "Salary Advance", maxTenure: 24 },
+  { value: "personal_loan", label: "Personal Loan", maxTenure: 24 },
+  { value: "emergency_loan", label: "Emergency Loan", maxTenure: 24 },
 ] as const;
 
 export const formatLoanType = (type: string): string => {
