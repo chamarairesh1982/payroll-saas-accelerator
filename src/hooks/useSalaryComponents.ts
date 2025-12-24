@@ -8,6 +8,17 @@ export type SalaryComponentRow = Tables<"salary_components">;
 export type SalaryComponentInsert = TablesInsert<"salary_components">;
 export type SalaryComponentUpdate = TablesUpdate<"salary_components">;
 
+export type SalaryComponentCreateInput = {
+  name: SalaryComponentInsert["name"];
+  type: SalaryComponentInsert["type"];
+  category: SalaryComponentInsert["category"];
+  calculation_type: SalaryComponentInsert["calculation_type"];
+  value: number;
+  is_taxable: boolean;
+  is_epf_applicable: boolean;
+  is_active: boolean;
+};
+
 export const useSalaryComponents = () => {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
@@ -31,7 +42,7 @@ export const useSalaryComponents = () => {
   });
 
   const createSalaryComponentMutation = useMutation({
-    mutationFn: async (data: Omit<SalaryComponentInsert, "company_id">) => {
+    mutationFn: async (data: SalaryComponentCreateInput) => {
       if (!companyId) throw new Error("No company selected");
 
       const { error } = await supabase.from("salary_components").insert({

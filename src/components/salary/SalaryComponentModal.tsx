@@ -30,7 +30,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { componentCategories, calculationTypes } from "@/data/mockSalaryComponents";
-import { useSalaryComponents, type SalaryComponentRow } from "@/hooks/useSalaryComponents";
+import { useSalaryComponents, type SalaryComponentRow, type SalaryComponentCreateInput } from "@/hooks/useSalaryComponents";
 
 const componentSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(50),
@@ -115,7 +115,7 @@ export function SalaryComponentModal({ open, onOpenChange, component }: SalaryCo
       return;
     }
 
-    createSalaryComponent(data, {
+    createSalaryComponent(data as SalaryComponentCreateInput, {
       onSuccess: () => {
         onOpenChange(false);
       },
