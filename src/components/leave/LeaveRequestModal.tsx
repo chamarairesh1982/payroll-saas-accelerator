@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { X, Calendar, Send, AlertCircle } from "lucide-react";
+import { X, Calendar, Send, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,12 +22,11 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useToast } from "@/hooks/use-toast";
-import { mockEmployees } from "@/data/mockEmployees";
-import { leaveTypes, getLeaveBalances, calculateBusinessDays } from "@/data/mockLeave";
+import { useLeaveRequests, useLeaveTypes } from "@/hooks/useLeave";
+import { useAuth } from "@/contexts/AuthContext";
+import { differenceInBusinessDays, addDays } from "date-fns";
 
 const leaveRequestSchema = z.object({
-  employeeId: z.string().min(1, "Please select an employee"),
   leaveTypeId: z.string().min(1, "Please select leave type"),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
@@ -40,15 +39,20 @@ interface LeaveRequestModalProps {
   onClose: () => void;
 }
 
+const calculateBusinessDays = (start: Date, end: Date): number => {
+  if (end < start) return 0;
+  // differenceInBusinessDays doesn't include end date, so we add 1
+  return differenceInBusinessDays(addDays(end, 1), start);
+};
+
 export function LeaveRequestModal({ onClose }: LeaveRequestModalProps) {
-  const { toast } = useToast();
-  const [selectedEmployee, setSelectedEmployee] = useState<string>("");
-  const [selectedLeaveType, setSelectedLeaveType] = useState<string>("");
+  const { profile } = useAuth();
+  const { leaveTypes, isLoading: isLoadingTypes } = useLeaveTypes();
+  const { createLeaveRequest, isCreating } = useLeaveRequests();
 
   const form = useForm<LeaveRequestFormData>({
     resolver: zodResolver(leaveRequestSchema),
     defaultValues: {
-      employeeId: "",
       leaveTypeId: "",
       startDate: "",
       endDate: "",
@@ -64,17 +68,21 @@ export function LeaveRequestModal({ onClose }: LeaveRequestModalProps) {
       ? calculateBusinessDays(new Date(watchStartDate), new Date(watchEndDate))
       : 0;
 
-  const leaveBalance = selectedEmployee && selectedLeaveType
-    ? getLeaveBalances(selectedEmployee).find((b) => b.leaveTypeId === selectedLeaveType)
-    : null;
-
   const onSubmit = (data: LeaveRequestFormData) => {
-    console.log("Leave request:", data);
-    toast({
-      title: "Leave Request Submitted",
-      description: `Your request for ${calculatedDays} day(s) has been submitted for approval.`,
-    });
-    onClose();
+    createLeaveRequest(
+      {
+        leave_type_id: data.leaveTypeId,
+        start_date: data.startDate,
+        end_date: data.endDate,
+        days: calculatedDays,
+        reason: data.reason,
+      },
+      {
+        onSuccess: () => {
+          onClose();
+        },
+      }
+    );
   };
 
   return (
@@ -96,7 +104,9 @@ export function LeaveRequestModal({ onClose }: LeaveRequestModalProps) {
         <div className="flex items-start justify-between gap-4 border-b px-6 py-5">
           <div className="min-w-0">
             <h2 className="font-display text-xl font-bold">Request Leave</h2>
-            <p className="text-sm text-muted-foreground">Submit a new leave request</p>
+            <p className="text-sm text-muted-foreground">
+              Requesting as: {profile?.first_name} {profile?.last_name}
+            </p>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} className="shrink-0">
             <X className="h-5 w-5" />
@@ -109,40 +119,6 @@ export function LeaveRequestModal({ onClose }: LeaveRequestModalProps) {
             className="flex min-h-0 flex-1 flex-col"
           >
             <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
-              {/* Employee Selection */}
-              <FormField
-                control={form.control}
-                name="employeeId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Employee *</FormLabel>
-                    <Select
-                      onValueChange={(value) => {
-                        field.onChange(value);
-                        setSelectedEmployee(value);
-                      }}
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select employee" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {mockEmployees
-                          .filter((e) => e.status === "active")
-                          .map((employee) => (
-                            <SelectItem key={employee.id} value={employee.id}>
-                              {employee.firstName} {employee.lastName} - {employee.department}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               {/* Leave Type */}
               <FormField
                 control={form.control}
@@ -151,11 +127,9 @@ export function LeaveRequestModal({ onClose }: LeaveRequestModalProps) {
                   <FormItem>
                     <FormLabel>Leave Type *</FormLabel>
                     <Select
-                      onValueChange={(value) => {
-                        field.onChange(value);
-                        setSelectedLeaveType(value);
-                      }}
+                      onValueChange={field.onChange}
                       value={field.value}
+                      disabled={isLoadingTypes}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -174,27 +148,6 @@ export function LeaveRequestModal({ onClose }: LeaveRequestModalProps) {
                   </FormItem>
                 )}
               />
-
-              {/* Leave Balance Info */}
-              {leaveBalance && (
-                <div className="rounded-lg bg-muted/50 p-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Available Balance</span>
-                    <span
-                      className={`font-semibold ${
-                        leaveBalance.available <= 0 ? "text-destructive" : "text-success"
-                      }`}
-                    >
-                      {leaveBalance.available} days
-                    </span>
-                  </div>
-                  <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Entitled: {leaveBalance.entitled}</span>
-                    <span>Taken: {leaveBalance.taken}</span>
-                    <span>Pending: {leaveBalance.pending}</span>
-                  </div>
-                </div>
-              )}
 
               {/* Date Range */}
               <div className="grid gap-4 sm:grid-cols-2">
@@ -239,19 +192,6 @@ export function LeaveRequestModal({ onClose }: LeaveRequestModalProps) {
                 </div>
               )}
 
-              {/* Warning if exceeds balance */}
-              {leaveBalance && calculatedDays > leaveBalance.available && (
-                <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3">
-                  <AlertCircle className="mt-0.5 h-4 w-4 text-warning" />
-                  <div className="text-sm">
-                    <p className="font-medium text-warning">Insufficient Balance</p>
-                    <p className="text-muted-foreground">
-                      You're requesting {calculatedDays} days but only have {leaveBalance.available} days available.
-                    </p>
-                  </div>
-                </div>
-              )}
-
               {/* Reason */}
               <FormField
                 control={form.control}
@@ -275,11 +215,15 @@ export function LeaveRequestModal({ onClose }: LeaveRequestModalProps) {
             {/* Actions (always visible) */}
             <div className="shrink-0 border-t bg-card px-6 py-4">
               <div className="flex justify-end gap-3">
-                <Button type="button" variant="outline" onClick={onClose}>
+                <Button type="button" variant="outline" onClick={onClose} disabled={isCreating}>
                   Cancel
                 </Button>
-                <Button type="submit">
-                  <Send className="h-4 w-4" />
+                <Button type="submit" disabled={isCreating || calculatedDays <= 0}>
+                  {isCreating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
                   Submit Request
                 </Button>
               </div>
