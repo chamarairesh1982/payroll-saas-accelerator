@@ -5,3 +5,9 @@ verify_jwt = true
 
 [functions.accept-invitation]
 verify_jwt = false
+
+[functions.create-employee]
+verify_jwt = true
+
+[functions.seed-test-employees]
+verify_jwt = false
