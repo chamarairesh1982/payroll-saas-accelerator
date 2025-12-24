@@ -14,16 +14,195 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      companies: {
+        Row: {
+          address: string | null
+          bank_account_number: string | null
+          bank_branch: string | null
+          bank_name: string | null
+          created_at: string
+          email: string | null
+          epf_number: string | null
+          etf_number: string | null
+          id: string
+          is_active: boolean
+          logo_url: string | null
+          name: string
+          phone: string | null
+          registration_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          bank_account_number?: string | null
+          bank_branch?: string | null
+          bank_name?: string | null
+          created_at?: string
+          email?: string | null
+          epf_number?: string | null
+          etf_number?: string | null
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name: string
+          phone?: string | null
+          registration_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          bank_account_number?: string | null
+          bank_branch?: string | null
+          bank_name?: string | null
+          created_at?: string
+          email?: string | null
+          epf_number?: string | null
+          etf_number?: string | null
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name?: string
+          phone?: string | null
+          registration_number?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bank_account_number: string | null
+          bank_branch: string | null
+          bank_name: string | null
+          basic_salary: number | null
+          company_id: string | null
+          created_at: string
+          date_of_birth: string | null
+          date_of_joining: string | null
+          department: string | null
+          designation: string | null
+          email: string | null
+          employee_number: string | null
+          employment_type: string | null
+          epf_number: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          nic: string | null
+          phone: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bank_account_number?: string | null
+          bank_branch?: string | null
+          bank_name?: string | null
+          basic_salary?: number | null
+          company_id?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          date_of_joining?: string | null
+          department?: string | null
+          designation?: string | null
+          email?: string | null
+          employee_number?: string | null
+          employment_type?: string | null
+          epf_number?: string | null
+          first_name?: string | null
+          id: string
+          last_name?: string | null
+          nic?: string | null
+          phone?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bank_account_number?: string | null
+          bank_branch?: string | null
+          bank_name?: string | null
+          basic_salary?: number | null
+          company_id?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          date_of_joining?: string | null
+          department?: string | null
+          designation?: string | null
+          email?: string | null
+          employee_number?: string | null
+          employment_type?: string | null
+          epf_number?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          nic?: string | null
+          phone?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_company_id: { Args: { p_user_id: string }; Returns: string }
+      get_user_role: {
+        Args: { p_company_id: string; p_user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_role: {
+        Args: {
+          p_role: Database["public"]["Enums"]["app_role"]
+          p_user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "super_admin" | "admin" | "hr" | "manager" | "employee"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +329,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["super_admin", "admin", "hr", "manager", "employee"],
+    },
   },
 } as const
