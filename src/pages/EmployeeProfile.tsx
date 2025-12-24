@@ -1,4 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -18,12 +19,17 @@ import {
   User,
   Hash,
   Loader2,
+  Upload,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEmployee } from "@/hooks/useEmployees";
+import { useEmployeeDocuments, DocumentType } from "@/hooks/useEmployeeDocuments";
+import { DocumentUploadModal } from "@/components/employees/DocumentUploadModal";
+import { DocumentList } from "@/components/employees/DocumentList";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { EPF_EMPLOYEE_RATE, EPF_EMPLOYER_RATE, ETF_EMPLOYER_RATE } from "@/types/payroll";
 import { format } from "date-fns";
@@ -37,7 +43,20 @@ const statusStyles: Record<string, string> = {
 const EmployeeProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isAdmin, isHR } = useAuth();
   const { data: employee, isLoading } = useEmployee(id);
+  const {
+    documents,
+    isLoading: isLoadingDocs,
+    uploadDocument,
+    deleteDocument,
+    getDocumentUrl,
+    isUploading,
+    isDeleting,
+  } = useEmployeeDocuments(id);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+
+  const canManageDocuments = isAdmin || isHR;
 
   if (isLoading) {
     return (
@@ -413,19 +432,45 @@ const EmployeeProfile = () => {
           </motion.div>
         </TabsContent>
 
-        <TabsContent value="documents">
+        <TabsContent value="documents" className="space-y-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center rounded-xl bg-card py-20 shadow-sm"
+            className="rounded-xl bg-card p-6 shadow-sm"
           >
-            <FileText className="h-16 w-16 text-muted-foreground/50" />
-            <h3 className="mt-4 text-lg font-semibold">No Documents</h3>
-            <p className="text-muted-foreground">
-              Employee documents will appear here once uploaded.
-            </p>
-            <Button className="mt-4">Upload Document</Button>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-display text-lg font-semibold">Documents</h3>
+              {canManageDocuments && (
+                <Button onClick={() => setShowUploadModal(true)}>
+                  <Upload className="h-4 w-4" />
+                  Upload Document
+                </Button>
+              )}
+            </div>
+
+            {isLoadingDocs ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <DocumentList
+                documents={documents}
+                onDelete={(doc) => deleteDocument.mutate(doc)}
+                onGetUrl={getDocumentUrl}
+                isDeleting={isDeleting}
+                canManage={canManageDocuments}
+              />
+            )}
           </motion.div>
+
+          <DocumentUploadModal
+            open={showUploadModal}
+            onOpenChange={setShowUploadModal}
+            onUpload={async (file, documentType, description) => {
+              await uploadDocument.mutateAsync({ file, documentType, description });
+            }}
+            isUploading={isUploading}
+          />
         </TabsContent>
 
         <TabsContent value="history">
