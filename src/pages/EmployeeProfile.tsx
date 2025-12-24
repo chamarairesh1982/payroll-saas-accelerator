@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -18,16 +17,18 @@ import {
   Briefcase,
   User,
   Hash,
+  Loader2,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { mockEmployees } from "@/data/mockEmployees";
+import { useEmployee } from "@/hooks/useEmployees";
 import { cn } from "@/lib/utils";
 import { EPF_EMPLOYEE_RATE, EPF_EMPLOYER_RATE, ETF_EMPLOYER_RATE } from "@/types/payroll";
+import { format } from "date-fns";
 
-const statusStyles = {
+const statusStyles: Record<string, string> = {
   active: "bg-success/15 text-success border-success/30",
   inactive: "bg-muted text-muted-foreground border-muted",
   terminated: "bg-destructive/15 text-destructive border-destructive/30",
@@ -36,7 +37,17 @@ const statusStyles = {
 const EmployeeProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const employee = mockEmployees.find((e) => e.id === id);
+  const { data: employee, isLoading } = useEmployee(id);
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="flex h-[50vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   if (!employee) {
     return (
@@ -55,9 +66,19 @@ const EmployeeProfile = () => {
     );
   }
 
-  const epfEmployee = employee.basicSalary * EPF_EMPLOYEE_RATE;
-  const epfEmployer = employee.basicSalary * EPF_EMPLOYER_RATE;
-  const etfEmployer = employee.basicSalary * ETF_EMPLOYER_RATE;
+  const basicSalary = employee.basic_salary || 0;
+  const epfEmployee = basicSalary * EPF_EMPLOYEE_RATE;
+  const epfEmployer = basicSalary * EPF_EMPLOYER_RATE;
+  const etfEmployer = basicSalary * ETF_EMPLOYER_RATE;
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "N/A";
+    try {
+      return format(new Date(dateStr), "MMMM d, yyyy");
+    } catch {
+      return "N/A";
+    }
+  };
 
   const InfoItem = ({
     icon: Icon,
@@ -100,30 +121,30 @@ const EmployeeProfile = () => {
         >
           <div className="flex items-center gap-5">
             <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-2xl font-bold text-primary-foreground shadow-lg">
-              {employee.firstName[0]}
-              {employee.lastName[0]}
+              {(employee.first_name || "?")[0]}
+              {(employee.last_name || "?")[0]}
             </div>
             <div>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold">
-                  {employee.firstName} {employee.lastName}
+                  {employee.first_name} {employee.last_name}
                 </h1>
                 <Badge
                   variant="outline"
-                  className={cn("capitalize", statusStyles[employee.status])}
+                  className={cn("capitalize", statusStyles[employee.status || "active"])}
                 >
-                  {employee.status}
+                  {employee.status || "active"}
                 </Badge>
               </div>
-              <p className="text-muted-foreground">{employee.designation}</p>
+              <p className="text-muted-foreground">{employee.designation || "N/A"}</p>
               <div className="mt-2 flex items-center gap-4 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Hash className="h-3 w-3" />
-                  {employee.employeeNumber}
+                  {employee.employee_number || "N/A"}
                 </span>
                 <span className="flex items-center gap-1">
                   <Building className="h-3 w-3" />
-                  {employee.department}
+                  {employee.department || "N/A"}
                 </span>
               </div>
             </div>
@@ -165,21 +186,13 @@ const EmployeeProfile = () => {
                 Personal Information
               </h3>
               <div className="grid gap-6 sm:grid-cols-2">
-                <InfoItem icon={Mail} label="Email Address" value={employee.email} />
-                <InfoItem icon={Phone} label="Phone Number" value={employee.phone} />
-                <InfoItem
-                  icon={User}
-                  label="NIC Number"
-                  value={employee.nic}
-                />
+                <InfoItem icon={Mail} label="Email Address" value={employee.email || "N/A"} />
+                <InfoItem icon={Phone} label="Phone Number" value={employee.phone || "N/A"} />
+                <InfoItem icon={User} label="NIC Number" value={employee.nic || "N/A"} />
                 <InfoItem
                   icon={Calendar}
                   label="Date of Birth"
-                  value={employee.dateOfBirth.toLocaleDateString("en-LK", {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })}
+                  value={formatDate(employee.date_of_birth)}
                 />
               </div>
             </motion.div>
@@ -199,20 +212,18 @@ const EmployeeProfile = () => {
                   icon={Briefcase}
                   label="Employment Type"
                   value={
-                    employee.employmentType.charAt(0).toUpperCase() +
-                    employee.employmentType.slice(1)
+                    employee.employment_type
+                      ? employee.employment_type.charAt(0).toUpperCase() +
+                        employee.employment_type.slice(1)
+                      : "N/A"
                   }
                 />
                 <InfoItem
                   icon={Calendar}
                   label="Date of Joining"
-                  value={employee.dateOfJoining.toLocaleDateString("en-LK", {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })}
+                  value={formatDate(employee.date_of_joining)}
                 />
-                <InfoItem icon={Hash} label="EPF Number" value={employee.epfNumber} />
+                <InfoItem icon={Hash} label="EPF Number" value={employee.epf_number || "N/A"} />
               </div>
             </motion.div>
           </div>
@@ -228,12 +239,12 @@ const EmployeeProfile = () => {
               Bank Account Details
             </h3>
             <div className="grid gap-6 sm:grid-cols-3">
-              <InfoItem icon={Building} label="Bank Name" value={employee.bankName} />
-              <InfoItem icon={MapPin} label="Branch" value={employee.bankBranch} />
+              <InfoItem icon={Building} label="Bank Name" value={employee.bank_name || "N/A"} />
+              <InfoItem icon={MapPin} label="Branch" value={employee.bank_branch || "N/A"} />
               <InfoItem
                 icon={CreditCard}
                 label="Account Number"
-                value={employee.bankAccountNumber}
+                value={employee.bank_account_number || "N/A"}
               />
             </div>
           </motion.div>
@@ -255,7 +266,7 @@ const EmployeeProfile = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Basic Salary</p>
                   <p className="text-2xl font-bold">
-                    Rs. {employee.basicSalary.toLocaleString()}
+                    Rs. {basicSalary.toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -347,7 +358,7 @@ const EmployeeProfile = () => {
                   <div className="flex justify-between rounded-lg bg-muted/50 p-3">
                     <span>Basic Salary</span>
                     <span className="font-medium">
-                      Rs. {employee.basicSalary.toLocaleString()}
+                      Rs. {basicSalary.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between rounded-lg bg-muted/50 p-3">
@@ -361,7 +372,7 @@ const EmployeeProfile = () => {
                   <div className="flex justify-between border-t pt-3 font-semibold">
                     <span>Total Earnings</span>
                     <span className="text-success">
-                      Rs. {(employee.basicSalary + 8000).toLocaleString()}
+                      Rs. {(basicSalary + 8000).toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -396,12 +407,7 @@ const EmployeeProfile = () => {
               <span className="text-lg font-semibold">Net Salary</span>
               <span className="text-2xl font-bold text-primary">
                 Rs.{" "}
-                {(
-                  employee.basicSalary +
-                  8000 -
-                  epfEmployee -
-                  2500
-                ).toLocaleString()}
+                {(basicSalary + 8000 - epfEmployee - 2500).toLocaleString()}
               </span>
             </div>
           </motion.div>

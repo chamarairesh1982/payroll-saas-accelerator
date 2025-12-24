@@ -1,14 +1,13 @@
-import { useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowLeft, Save, User, Building, CreditCard, DollarSign } from "lucide-react";
+import { ArrowLeft, Save, User, Building, CreditCard, DollarSign, Loader2 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -24,25 +23,25 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useToast } from "@/hooks/use-toast";
-import { mockEmployees, departments, designations, banks } from "@/data/mockEmployees";
+import { useEmployees, useEmployee, departments, designations, banks } from "@/hooks/useEmployees";
 
 const employeeSchema = z.object({
-  firstName: z.string().min(2, "First name must be at least 2 characters").max(50),
-  lastName: z.string().min(2, "Last name must be at least 2 characters").max(50),
+  first_name: z.string().min(2, "First name must be at least 2 characters").max(50),
+  last_name: z.string().min(2, "Last name must be at least 2 characters").max(50),
   email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters").optional(),
   phone: z.string().min(10, "Phone number must be at least 10 characters"),
   nic: z.string().min(10, "NIC must be at least 10 characters").max(12),
-  dateOfBirth: z.string().min(1, "Date of birth is required"),
-  dateOfJoining: z.string().min(1, "Date of joining is required"),
+  date_of_birth: z.string().min(1, "Date of birth is required"),
+  date_of_joining: z.string().min(1, "Date of joining is required"),
   department: z.string().min(1, "Department is required"),
   designation: z.string().min(1, "Designation is required"),
-  employmentType: z.enum(["permanent", "contract", "probation", "intern"]),
-  bankName: z.string().min(1, "Bank name is required"),
-  bankBranch: z.string().min(1, "Bank branch is required"),
-  bankAccountNumber: z.string().min(5, "Account number must be at least 5 characters"),
-  epfNumber: z.string().min(1, "EPF number is required"),
-  basicSalary: z.coerce.number().min(1, "Basic salary must be greater than 0"),
+  employment_type: z.enum(["permanent", "contract", "probation", "intern"]),
+  bank_name: z.string().min(1, "Bank name is required"),
+  bank_branch: z.string().min(1, "Bank branch is required"),
+  bank_account_number: z.string().min(5, "Account number must be at least 5 characters"),
+  epf_number: z.string().min(1, "EPF number is required"),
+  basic_salary: z.coerce.number().min(1, "Basic salary must be greater than 0"),
 });
 
 type EmployeeFormData = z.infer<typeof employeeSchema>;
@@ -50,61 +49,107 @@ type EmployeeFormData = z.infer<typeof employeeSchema>;
 const EmployeeForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const isEditing = Boolean(id);
 
-  const existingEmployee = isEditing
-    ? mockEmployees.find((e) => e.id === id)
-    : null;
+  const { createEmployee, updateEmployee, isCreating, isUpdating } = useEmployees();
+  const { data: existingEmployee, isLoading } = useEmployee(id);
 
   const form = useForm<EmployeeFormData>({
     resolver: zodResolver(employeeSchema),
-    defaultValues: existingEmployee
-      ? {
-          firstName: existingEmployee.firstName,
-          lastName: existingEmployee.lastName,
-          email: existingEmployee.email,
-          phone: existingEmployee.phone,
-          nic: existingEmployee.nic,
-          dateOfBirth: existingEmployee.dateOfBirth.toISOString().split("T")[0],
-          dateOfJoining: existingEmployee.dateOfJoining.toISOString().split("T")[0],
-          department: existingEmployee.department,
-          designation: existingEmployee.designation,
-          employmentType: existingEmployee.employmentType,
-          bankName: existingEmployee.bankName,
-          bankBranch: existingEmployee.bankBranch,
-          bankAccountNumber: existingEmployee.bankAccountNumber,
-          epfNumber: existingEmployee.epfNumber,
-          basicSalary: existingEmployee.basicSalary,
-        }
-      : {
-          firstName: "",
-          lastName: "",
-          email: "",
-          phone: "",
-          nic: "",
-          dateOfBirth: "",
-          dateOfJoining: "",
-          department: "",
-          designation: "",
-          employmentType: "permanent",
-          bankName: "",
-          bankBranch: "",
-          bankAccountNumber: "",
-          epfNumber: "",
-          basicSalary: 0,
-        },
+    defaultValues: {
+      first_name: "",
+      last_name: "",
+      email: "",
+      password: "",
+      phone: "",
+      nic: "",
+      date_of_birth: "",
+      date_of_joining: "",
+      department: "",
+      designation: "",
+      employment_type: "permanent",
+      bank_name: "",
+      bank_branch: "",
+      bank_account_number: "",
+      epf_number: "",
+      basic_salary: 0,
+    },
   });
 
+  // Populate form when editing
+  useEffect(() => {
+    if (existingEmployee && isEditing) {
+      form.reset({
+        first_name: existingEmployee.first_name || "",
+        last_name: existingEmployee.last_name || "",
+        email: existingEmployee.email || "",
+        phone: existingEmployee.phone || "",
+        nic: existingEmployee.nic || "",
+        date_of_birth: existingEmployee.date_of_birth || "",
+        date_of_joining: existingEmployee.date_of_joining || "",
+        department: existingEmployee.department || "",
+        designation: existingEmployee.designation || "",
+        employment_type: (existingEmployee.employment_type as "permanent" | "contract" | "probation" | "intern") || "permanent",
+        bank_name: existingEmployee.bank_name || "",
+        bank_branch: existingEmployee.bank_branch || "",
+        bank_account_number: existingEmployee.bank_account_number || "",
+        epf_number: existingEmployee.epf_number || "",
+        basic_salary: existingEmployee.basic_salary || 0,
+      });
+    }
+  }, [existingEmployee, isEditing, form]);
+
   const onSubmit = (data: EmployeeFormData) => {
-    console.log("Form data:", data);
-    toast({
-      title: isEditing ? "Employee Updated" : "Employee Created",
-      description: `${data.firstName} ${data.lastName} has been ${
-        isEditing ? "updated" : "added"
-      } successfully.`,
-    });
-    navigate("/employees");
+    if (isEditing && id) {
+      updateEmployee(
+        {
+          id,
+          updates: {
+            first_name: data.first_name,
+            last_name: data.last_name,
+            phone: data.phone,
+            nic: data.nic,
+            date_of_birth: data.date_of_birth,
+            date_of_joining: data.date_of_joining,
+            department: data.department,
+            designation: data.designation,
+            employment_type: data.employment_type,
+            bank_name: data.bank_name,
+            bank_branch: data.bank_branch,
+            bank_account_number: data.bank_account_number,
+            epf_number: data.epf_number,
+            basic_salary: data.basic_salary,
+          },
+        },
+        {
+          onSuccess: () => navigate("/employees"),
+        }
+      );
+    } else {
+      createEmployee(
+        {
+          email: data.email,
+          password: data.password || "TempPass123!",
+          first_name: data.first_name,
+          last_name: data.last_name,
+          phone: data.phone,
+          nic: data.nic,
+          date_of_birth: data.date_of_birth,
+          date_of_joining: data.date_of_joining,
+          department: data.department,
+          designation: data.designation,
+          employment_type: data.employment_type,
+          bank_name: data.bank_name,
+          bank_branch: data.bank_branch,
+          bank_account_number: data.bank_account_number,
+          epf_number: data.epf_number,
+          basic_salary: data.basic_salary,
+        },
+        {
+          onSuccess: () => navigate("/employees"),
+        }
+      );
+    }
   };
 
   const SectionHeader = ({
@@ -121,6 +166,18 @@ const EmployeeForm = () => {
       <h3 className="font-display text-lg font-semibold">{title}</h3>
     </div>
   );
+
+  if (isLoading && isEditing) {
+    return (
+      <MainLayout>
+        <div className="flex h-[50vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  const isPending = isCreating || isUpdating;
 
   return (
     <MainLayout>
@@ -139,7 +196,7 @@ const EmployeeForm = () => {
         </h1>
         <p className="page-description">
           {isEditing
-            ? `Update ${existingEmployee?.firstName}'s information`
+            ? `Update ${existingEmployee?.first_name}'s information`
             : "Fill in the details to register a new employee"}
         </p>
       </div>
@@ -157,7 +214,7 @@ const EmployeeForm = () => {
             <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               <FormField
                 control={form.control}
-                name="firstName"
+                name="first_name"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>First Name *</FormLabel>
@@ -170,7 +227,7 @@ const EmployeeForm = () => {
               />
               <FormField
                 control={form.control}
-                name="lastName"
+                name="last_name"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Last Name *</FormLabel>
@@ -191,6 +248,7 @@ const EmployeeForm = () => {
                       <Input
                         type="email"
                         placeholder="nimal@company.lk"
+                        disabled={isEditing}
                         {...field}
                       />
                     </FormControl>
@@ -198,6 +256,25 @@ const EmployeeForm = () => {
                   </FormItem>
                 )}
               />
+              {!isEditing && (
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password *</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="Minimum 6 characters"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <FormField
                 control={form.control}
                 name="phone"
@@ -226,7 +303,7 @@ const EmployeeForm = () => {
               />
               <FormField
                 control={form.control}
-                name="dateOfBirth"
+                name="date_of_birth"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Date of Birth *</FormLabel>
@@ -299,7 +376,7 @@ const EmployeeForm = () => {
               />
               <FormField
                 control={form.control}
-                name="employmentType"
+                name="employment_type"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Employment Type *</FormLabel>
@@ -322,7 +399,7 @@ const EmployeeForm = () => {
               />
               <FormField
                 control={form.control}
-                name="dateOfJoining"
+                name="date_of_joining"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Date of Joining *</FormLabel>
@@ -335,7 +412,7 @@ const EmployeeForm = () => {
               />
               <FormField
                 control={form.control}
-                name="epfNumber"
+                name="epf_number"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>EPF Number *</FormLabel>
@@ -360,7 +437,7 @@ const EmployeeForm = () => {
             <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               <FormField
                 control={form.control}
-                name="bankName"
+                name="bank_name"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Bank Name *</FormLabel>
@@ -384,7 +461,7 @@ const EmployeeForm = () => {
               />
               <FormField
                 control={form.control}
-                name="bankBranch"
+                name="bank_branch"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Branch *</FormLabel>
@@ -397,7 +474,7 @@ const EmployeeForm = () => {
               />
               <FormField
                 control={form.control}
-                name="bankAccountNumber"
+                name="bank_account_number"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Account Number *</FormLabel>
@@ -422,16 +499,12 @@ const EmployeeForm = () => {
             <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               <FormField
                 control={form.control}
-                name="basicSalary"
+                name="basic_salary"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Basic Salary (Rs.) *</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        placeholder="150000"
-                        {...field}
-                      />
+                      <Input type="number" placeholder="150000" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -456,8 +529,12 @@ const EmployeeForm = () => {
             >
               Cancel
             </Button>
-            <Button type="submit" size="lg">
-              <Save className="h-4 w-4" />
+            <Button type="submit" size="lg" disabled={isPending}>
+              {isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
               {isEditing ? "Update Employee" : "Add Employee"}
             </Button>
           </div>

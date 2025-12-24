@@ -4,16 +4,15 @@ import { motion } from "framer-motion";
 import {
   Search,
   Plus,
-  Filter,
   Download,
   MoreHorizontal,
   Eye,
   Edit,
   Trash2,
   Mail,
-  Phone,
   Building,
   Users,
+  Loader2,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -41,16 +40,26 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { mockEmployees, departments } from "@/data/mockEmployees";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useEmployees, departments } from "@/hooks/useEmployees";
 import { cn } from "@/lib/utils";
 
-const statusStyles = {
+const statusStyles: Record<string, string> = {
   active: "bg-success/15 text-success border-success/30",
   inactive: "bg-muted text-muted-foreground border-muted",
   terminated: "bg-destructive/15 text-destructive border-destructive/30",
 };
 
-const employmentTypeLabels = {
+const employmentTypeLabels: Record<string, string> = {
   permanent: "Permanent",
   contract: "Contract",
   probation: "Probation",
@@ -58,20 +67,21 @@ const employmentTypeLabels = {
 };
 
 const Employees = () => {
+  const { employees, isLoading, deleteEmployee, isDeleting } = useEmployees();
   const [searchQuery, setSearchQuery] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const filteredEmployees = useMemo(() => {
-    return mockEmployees.filter((employee) => {
+    return employees.filter((employee) => {
+      const fullName = `${employee.first_name || ""} ${employee.last_name || ""}`.toLowerCase();
       const matchesSearch =
         searchQuery === "" ||
-        `${employee.firstName} ${employee.lastName}`
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
-        employee.employeeNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        employee.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        employee.epfNumber.toLowerCase().includes(searchQuery.toLowerCase());
+        fullName.includes(searchQuery.toLowerCase()) ||
+        (employee.employee_number || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (employee.email || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (employee.epf_number || "").toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesDepartment =
         departmentFilter === "all" || employee.department === departmentFilter;
@@ -81,13 +91,33 @@ const Employees = () => {
 
       return matchesSearch && matchesDepartment && matchesStatus;
     });
-  }, [searchQuery, departmentFilter, statusFilter]);
+  }, [employees, searchQuery, departmentFilter, statusFilter]);
 
-  const stats = useMemo(() => ({
-    total: mockEmployees.length,
-    active: mockEmployees.filter((e) => e.status === "active").length,
-    departments: new Set(mockEmployees.map((e) => e.department)).size,
-  }), []);
+  const stats = useMemo(
+    () => ({
+      total: employees.length,
+      active: employees.filter((e) => e.status === "active").length,
+      departments: new Set(employees.map((e) => e.department).filter(Boolean)).size,
+    }),
+    [employees]
+  );
+
+  const handleDelete = () => {
+    if (deleteId) {
+      deleteEmployee(deleteId);
+      setDeleteId(null);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="flex h-[50vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
@@ -206,7 +236,7 @@ const Employees = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="rounded-xl border border-border bg-card shadow-sm overflow-hidden"
+        className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
       >
         <Table>
           <TableHeader>
@@ -236,38 +266,38 @@ const Employees = () => {
                     className="flex items-center gap-3"
                   >
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                      {employee.firstName[0]}
-                      {employee.lastName[0]}
+                      {(employee.first_name || "?")[0]}
+                      {(employee.last_name || "?")[0]}
                     </div>
                     <div>
-                      <p className="font-medium text-foreground group-hover:text-primary transition-colors">
-                        {employee.firstName} {employee.lastName}
+                      <p className="font-medium text-foreground transition-colors group-hover:text-primary">
+                        {employee.first_name} {employee.last_name}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {employee.employeeNumber}
+                        {employee.employee_number || "N/A"}
                       </p>
                     </div>
                   </Link>
                 </TableCell>
                 <TableCell className="font-mono text-sm">
-                  {employee.epfNumber}
+                  {employee.epf_number || "N/A"}
                 </TableCell>
-                <TableCell>{employee.department}</TableCell>
-                <TableCell className="text-sm">{employee.designation}</TableCell>
+                <TableCell>{employee.department || "N/A"}</TableCell>
+                <TableCell className="text-sm">{employee.designation || "N/A"}</TableCell>
                 <TableCell>
                   <Badge variant="secondary" className="font-normal">
-                    {employmentTypeLabels[employee.employmentType]}
+                    {employmentTypeLabels[employee.employment_type || "permanent"] || employee.employment_type}
                   </Badge>
                 </TableCell>
                 <TableCell className="font-medium">
-                  Rs. {employee.basicSalary.toLocaleString()}
+                  Rs. {(employee.basic_salary || 0).toLocaleString()}
                 </TableCell>
                 <TableCell>
                   <Badge
                     variant="outline"
-                    className={cn("capitalize", statusStyles[employee.status])}
+                    className={cn("capitalize", statusStyles[employee.status || "active"])}
                   >
-                    {employee.status}
+                    {employee.status || "active"}
                   </Badge>
                 </TableCell>
                 <TableCell>
@@ -299,7 +329,10 @@ const Employees = () => {
                         Send Email
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive focus:text-destructive">
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setDeleteId(employee.id)}
+                      >
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete
                       </DropdownMenuItem>
@@ -317,7 +350,9 @@ const Employees = () => {
               No employees found
             </p>
             <p className="text-sm text-muted-foreground">
-              Try adjusting your search or filter criteria
+              {employees.length === 0
+                ? "Add your first employee to get started"
+                : "Try adjusting your search or filter criteria"}
             </p>
           </div>
         )}
@@ -326,9 +361,32 @@ const Employees = () => {
       {/* Pagination placeholder */}
       <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
         <p>
-          Showing {filteredEmployees.length} of {mockEmployees.length} employees
+          Showing {filteredEmployees.length} of {employees.length} employees
         </p>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the employee from your company. This action cannot
+              be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Removing..." : "Remove Employee"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 };
