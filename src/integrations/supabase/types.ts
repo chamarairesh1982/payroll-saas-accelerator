@@ -68,6 +68,513 @@ export type Database = {
         }
         Relationships: []
       }
+      leave_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          days: number
+          employee_id: string
+          end_date: string
+          id: string
+          leave_type_id: string
+          reason: string | null
+          rejection_reason: string | null
+          start_date: string
+          status: Database["public"]["Enums"]["leave_status"]
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          days: number
+          employee_id: string
+          end_date: string
+          id?: string
+          leave_type_id: string
+          reason?: string | null
+          rejection_reason?: string | null
+          start_date: string
+          status?: Database["public"]["Enums"]["leave_status"]
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          days?: number
+          employee_id?: string
+          end_date?: string
+          id?: string
+          leave_type_id?: string
+          reason?: string | null
+          rejection_reason?: string | null
+          start_date?: string
+          status?: Database["public"]["Enums"]["leave_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_requests_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_requests_leave_type_id_fkey"
+            columns: ["leave_type_id"]
+            isOneToOne: false
+            referencedRelation: "leave_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leave_types: {
+        Row: {
+          code: string
+          company_id: string
+          created_at: string
+          days_per_year: number
+          id: string
+          is_active: boolean
+          is_carry_forward: boolean
+          is_paid: boolean
+          max_carry_forward: number
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          company_id: string
+          created_at?: string
+          days_per_year?: number
+          id?: string
+          is_active?: boolean
+          is_carry_forward?: boolean
+          is_paid?: boolean
+          max_carry_forward?: number
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          company_id?: string
+          created_at?: string
+          days_per_year?: number
+          id?: string
+          is_active?: boolean
+          is_carry_forward?: boolean
+          is_paid?: boolean
+          max_carry_forward?: number
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_types_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loan_recovery_schedules: {
+        Row: {
+          created_at: string
+          due_date: string
+          id: string
+          installment_number: number
+          interest_amount: number
+          loan_id: string
+          paid_amount: number
+          paid_date: string | null
+          principal_amount: number
+          status: Database["public"]["Enums"]["recovery_status"]
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          due_date: string
+          id?: string
+          installment_number: number
+          interest_amount?: number
+          loan_id: string
+          paid_amount?: number
+          paid_date?: string | null
+          principal_amount: number
+          status?: Database["public"]["Enums"]["recovery_status"]
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          due_date?: string
+          id?: string
+          installment_number?: number
+          interest_amount?: number
+          loan_id?: string
+          paid_amount?: number
+          paid_date?: string | null
+          principal_amount?: number
+          status?: Database["public"]["Enums"]["recovery_status"]
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loan_recovery_schedules_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "loans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loans: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          employee_id: string
+          expected_end_date: string
+          id: string
+          interest_rate: number
+          loan_type: Database["public"]["Enums"]["loan_type"]
+          monthly_deduction: number
+          outstanding_amount: number
+          principal_amount: number
+          start_date: string
+          status: Database["public"]["Enums"]["loan_status"]
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          employee_id: string
+          expected_end_date: string
+          id?: string
+          interest_rate?: number
+          loan_type: Database["public"]["Enums"]["loan_type"]
+          monthly_deduction: number
+          outstanding_amount: number
+          principal_amount: number
+          start_date: string
+          status?: Database["public"]["Enums"]["loan_status"]
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          employee_id?: string
+          expected_end_date?: string
+          id?: string
+          interest_rate?: number
+          loan_type?: Database["public"]["Enums"]["loan_type"]
+          monthly_deduction?: number
+          outstanding_amount?: number
+          principal_amount?: number
+          start_date?: string
+          status?: Database["public"]["Enums"]["loan_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loans_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loans_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      overtime_entries: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          calculated_amount: number
+          created_at: string
+          date: string
+          employee_id: string
+          hours: number
+          id: string
+          overtime_rate_id: string
+          status: Database["public"]["Enums"]["approval_status"]
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          calculated_amount?: number
+          created_at?: string
+          date: string
+          employee_id: string
+          hours: number
+          id?: string
+          overtime_rate_id: string
+          status?: Database["public"]["Enums"]["approval_status"]
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          calculated_amount?: number
+          created_at?: string
+          date?: string
+          employee_id?: string
+          hours?: number
+          id?: string
+          overtime_rate_id?: string
+          status?: Database["public"]["Enums"]["approval_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "overtime_entries_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_entries_overtime_rate_id_fkey"
+            columns: ["overtime_rate_id"]
+            isOneToOne: false
+            referencedRelation: "overtime_rates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      overtime_rates: {
+        Row: {
+          company_id: string
+          created_at: string
+          day_type: Database["public"]["Enums"]["overtime_day_type"]
+          id: string
+          is_active: boolean
+          multiplier: number
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          day_type: Database["public"]["Enums"]["overtime_day_type"]
+          id?: string
+          is_active?: boolean
+          multiplier?: number
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          day_type?: Database["public"]["Enums"]["overtime_day_type"]
+          id?: string
+          is_active?: boolean
+          multiplier?: number
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "overtime_rates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_runs: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          company_id: string
+          created_at: string
+          created_by: string
+          employee_count: number
+          id: string
+          pay_date: string
+          pay_period_end: string
+          pay_period_start: string
+          status: Database["public"]["Enums"]["payroll_status"]
+          total_epf_employee: number
+          total_epf_employer: number
+          total_etf: number
+          total_gross_salary: number
+          total_net_salary: number
+          total_paye: number
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          company_id: string
+          created_at?: string
+          created_by: string
+          employee_count?: number
+          id?: string
+          pay_date: string
+          pay_period_end: string
+          pay_period_start: string
+          status?: Database["public"]["Enums"]["payroll_status"]
+          total_epf_employee?: number
+          total_epf_employer?: number
+          total_etf?: number
+          total_gross_salary?: number
+          total_net_salary?: number
+          total_paye?: number
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          employee_count?: number
+          id?: string
+          pay_date?: string
+          pay_period_end?: string
+          pay_period_start?: string
+          status?: Database["public"]["Enums"]["payroll_status"]
+          total_epf_employee?: number
+          total_epf_employer?: number
+          total_etf?: number
+          total_gross_salary?: number
+          total_net_salary?: number
+          total_paye?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_runs_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_runs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payslips: {
+        Row: {
+          allowances: Json
+          basic_salary: number
+          created_at: string
+          deductions: Json
+          employee_id: string
+          epf_employee: number
+          epf_employer: number
+          etf_employer: number
+          gross_salary: number
+          id: string
+          net_salary: number
+          ot_amount: number
+          ot_hours: number
+          paye_tax: number
+          payroll_run_id: string
+          taxable_income: number
+          worked_days: number
+          working_days: number
+        }
+        Insert: {
+          allowances?: Json
+          basic_salary: number
+          created_at?: string
+          deductions?: Json
+          employee_id: string
+          epf_employee?: number
+          epf_employer?: number
+          etf_employer?: number
+          gross_salary: number
+          id?: string
+          net_salary: number
+          ot_amount?: number
+          ot_hours?: number
+          paye_tax?: number
+          payroll_run_id: string
+          taxable_income?: number
+          worked_days?: number
+          working_days?: number
+        }
+        Update: {
+          allowances?: Json
+          basic_salary?: number
+          created_at?: string
+          deductions?: Json
+          employee_id?: string
+          epf_employee?: number
+          epf_employer?: number
+          etf_employer?: number
+          gross_salary?: number
+          id?: string
+          net_salary?: number
+          ot_amount?: number
+          ot_hours?: number
+          paye_tax?: number
+          payroll_run_id?: string
+          taxable_income?: number
+          worked_days?: number
+          working_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payslips_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payslips_payroll_run_id_fkey"
+            columns: ["payroll_run_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -151,6 +658,106 @@ export type Database = {
           },
         ]
       }
+      salary_components: {
+        Row: {
+          calculation_type: Database["public"]["Enums"]["calculation_type"]
+          category: Database["public"]["Enums"]["component_category"]
+          company_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_epf_applicable: boolean
+          is_taxable: boolean
+          name: string
+          type: Database["public"]["Enums"]["component_type"]
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          calculation_type?: Database["public"]["Enums"]["calculation_type"]
+          category: Database["public"]["Enums"]["component_category"]
+          company_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_epf_applicable?: boolean
+          is_taxable?: boolean
+          name: string
+          type: Database["public"]["Enums"]["component_type"]
+          updated_at?: string
+          value?: number
+        }
+        Update: {
+          calculation_type?: Database["public"]["Enums"]["calculation_type"]
+          category?: Database["public"]["Enums"]["component_category"]
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_epf_applicable?: boolean
+          is_taxable?: boolean
+          name?: string
+          type?: Database["public"]["Enums"]["component_type"]
+          updated_at?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "salary_components_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tax_slabs: {
+        Row: {
+          company_id: string
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          is_active: boolean
+          max_income: number
+          min_income: number
+          rate: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          effective_from: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          max_income: number
+          min_income: number
+          rate: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          max_income?: number
+          min_income?: number
+          rate?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_slabs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           company_id: string
@@ -203,6 +810,23 @@ export type Database = {
     }
     Enums: {
       app_role: "super_admin" | "admin" | "hr" | "manager" | "employee"
+      approval_status: "pending" | "approved" | "rejected"
+      calculation_type: "basic" | "gross" | "fixed"
+      component_category: "fixed" | "percentage" | "variable"
+      component_type: "allowance" | "deduction"
+      employee_status: "active" | "inactive" | "terminated"
+      employment_type: "permanent" | "contract" | "probation" | "intern"
+      leave_status: "pending" | "approved" | "rejected" | "cancelled"
+      loan_status: "active" | "completed" | "defaulted"
+      loan_type: "salary_advance" | "personal_loan" | "emergency_loan"
+      overtime_day_type: "weekday" | "saturday" | "sunday" | "holiday"
+      payroll_status:
+        | "draft"
+        | "processing"
+        | "pending_approval"
+        | "approved"
+        | "paid"
+      recovery_status: "pending" | "paid" | "partial" | "overdue"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -331,6 +955,24 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["super_admin", "admin", "hr", "manager", "employee"],
+      approval_status: ["pending", "approved", "rejected"],
+      calculation_type: ["basic", "gross", "fixed"],
+      component_category: ["fixed", "percentage", "variable"],
+      component_type: ["allowance", "deduction"],
+      employee_status: ["active", "inactive", "terminated"],
+      employment_type: ["permanent", "contract", "probation", "intern"],
+      leave_status: ["pending", "approved", "rejected", "cancelled"],
+      loan_status: ["active", "completed", "defaulted"],
+      loan_type: ["salary_advance", "personal_loan", "emergency_loan"],
+      overtime_day_type: ["weekday", "saturday", "sunday", "holiday"],
+      payroll_status: [
+        "draft",
+        "processing",
+        "pending_approval",
+        "approved",
+        "paid",
+      ],
+      recovery_status: ["pending", "paid", "partial", "overdue"],
     },
   },
 } as const
