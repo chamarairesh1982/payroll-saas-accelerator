@@ -1,21 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { mockEmployees } from "@/data/mockEmployees";
-import { mockOvertimeRates, calculateOvertimeAmount } from "@/data/mockOvertime";
 import { format } from "date-fns";
-import { toast } from "sonner";
-import { CalendarIcon, Calculator } from "lucide-react";
+import { CalendarIcon, Calculator, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useOvertimeRates, useOvertimeEntries } from "@/hooks/useOvertime";
+import { useEmployees } from "@/hooks/useEmployees";
 
 const overtimeSchema = z.object({
   employeeId: z.string().min(1, "Please select an employee"),
@@ -33,6 +32,9 @@ interface OvertimeEntryModalProps {
 
 export function OvertimeEntryModal({ open, onOpenChange }: OvertimeEntryModalProps) {
   const [calculatedAmount, setCalculatedAmount] = useState<number | null>(null);
+  const { employees, isLoading: isLoadingEmployees } = useEmployees();
+  const { overtimeRates, isLoading: isLoadingRates } = useOvertimeRates();
+  const { createOvertimeEntry, isCreating } = useOvertimeEntries();
 
   const form = useForm<OvertimeFormData>({
     resolver: zodResolver(overtimeSchema),
@@ -46,28 +48,56 @@ export function OvertimeEntryModal({ open, onOpenChange }: OvertimeEntryModalPro
   const watchedValues = form.watch();
 
   const calculateAmount = () => {
-    const employee = mockEmployees.find(e => e.id === watchedValues.employeeId);
-    const rate = mockOvertimeRates.find(r => r.id === watchedValues.overtimeRateId);
+    const employee = employees.find(e => e.id === watchedValues.employeeId);
+    const rate = overtimeRates.find(r => r.id === watchedValues.overtimeRateId);
     
     if (employee && rate && watchedValues.hours > 0) {
-      const amount = calculateOvertimeAmount(
-        employee.basicSalary,
-        watchedValues.hours,
-        rate.multiplier
-      );
-      setCalculatedAmount(amount);
+      const basicSalary = employee.basic_salary || 0;
+      // Calculate hourly rate: basic salary / (22 working days * 8 hours)
+      const hourlyRate = basicSalary / (22 * 8);
+      const amount = hourlyRate * watchedValues.hours * Number(rate.multiplier);
+      setCalculatedAmount(Math.round(amount * 100) / 100);
     }
   };
 
   const onSubmit = (data: OvertimeFormData) => {
-    const employee = mockEmployees.find(e => e.id === data.employeeId);
-    toast.success("Overtime Entry Submitted", {
-      description: `${data.hours} hours of overtime for ${employee?.firstName} ${employee?.lastName} submitted for approval.`,
-    });
-    onOpenChange(false);
-    form.reset();
-    setCalculatedAmount(null);
+    const employee = employees.find(e => e.id === data.employeeId);
+    const rate = overtimeRates.find(r => r.id === data.overtimeRateId);
+    
+    if (!employee || !rate) return;
+    
+    const basicSalary = employee.basic_salary || 0;
+    const hourlyRate = basicSalary / (22 * 8);
+    const amount = hourlyRate * data.hours * Number(rate.multiplier);
+
+    createOvertimeEntry(
+      {
+        employee_id: data.employeeId,
+        date: format(data.date, "yyyy-MM-dd"),
+        hours: data.hours,
+        overtime_rate_id: data.overtimeRateId,
+        calculated_amount: Math.round(amount * 100) / 100,
+      },
+      {
+        onSuccess: () => {
+          onOpenChange(false);
+          form.reset();
+          setCalculatedAmount(null);
+        },
+      }
+    );
   };
+
+  // Reset form when modal opens
+  useEffect(() => {
+    if (open) {
+      form.reset();
+      setCalculatedAmount(null);
+    }
+  }, [open, form]);
+
+  const activeEmployees = employees.filter(e => e.status === 'active');
+  const activeRates = overtimeRates.filter(r => r.is_active);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -87,16 +117,20 @@ export function OvertimeEntryModal({ open, onOpenChange }: OvertimeEntryModalPro
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Employee</FormLabel>
-                  <Select onValueChange={(value) => { field.onChange(value); setCalculatedAmount(null); }} value={field.value}>
+                  <Select 
+                    onValueChange={(value) => { field.onChange(value); setCalculatedAmount(null); }} 
+                    value={field.value}
+                    disabled={isLoadingEmployees}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select employee" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {mockEmployees.filter(e => e.status === 'active').map((employee) => (
+                      {activeEmployees.map((employee) => (
                         <SelectItem key={employee.id} value={employee.id}>
-                          {employee.firstName} {employee.lastName} ({employee.employeeNumber})
+                          {employee.first_name} {employee.last_name} ({employee.employee_number || 'N/A'})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -173,14 +207,18 @@ export function OvertimeEntryModal({ open, onOpenChange }: OvertimeEntryModalPro
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Rate Type</FormLabel>
-                    <Select onValueChange={(value) => { field.onChange(value); setCalculatedAmount(null); }} value={field.value}>
+                    <Select 
+                      onValueChange={(value) => { field.onChange(value); setCalculatedAmount(null); }} 
+                      value={field.value}
+                      disabled={isLoadingRates}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select rate" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {mockOvertimeRates.filter(r => r.isActive).map((rate) => (
+                        {activeRates.map((rate) => (
                           <SelectItem key={rate.id} value={rate.id}>
                             {rate.name} ({rate.multiplier}x)
                           </SelectItem>
@@ -210,10 +248,13 @@ export function OvertimeEntryModal({ open, onOpenChange }: OvertimeEntryModalPro
             )}
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isCreating}>
                 Cancel
               </Button>
-              <Button type="submit">Submit Entry</Button>
+              <Button type="submit" disabled={isCreating}>
+                {isCreating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Submit Entry
+              </Button>
             </DialogFooter>
           </form>
         </Form>
