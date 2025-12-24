@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { FileText, Download, FileSpreadsheet, Calendar, Users, Wallet, ClipboardList, TrendingUp, Building2 } from "lucide-react";
+import { FileText, Download, FileSpreadsheet, Calendar, Users, Wallet, ClipboardList, TrendingUp, Building2, Building } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,6 +23,8 @@ import {
   getBalanceByCode,
   leaveTypes,
 } from "@/lib/report-exports";
+import { BankFileExport } from "@/components/reports/BankFileExport";
+import { PayrollRecord } from "@/lib/bank-file-export";
 
 const months = Array.from({ length: 12 }, (_, i) => {
   const date = subMonths(new Date(), i);
@@ -36,6 +38,21 @@ const Reports = () => {
   const payrollData = useMemo(() => getPayrollSummaryData(monthDate), [monthDate]);
   const contributionData = useMemo(() => getContributionData(monthDate), [monthDate]);
   const leaveBalanceData = useMemo(() => getLeaveBalanceData(), []);
+
+  // Transform payroll data for bank file export
+  const bankFileData: PayrollRecord[] = useMemo(() => {
+    return payrollData.payslips.map((p) => ({
+      employeeNumber: p.employee.employeeNumber,
+      firstName: p.employee.firstName,
+      lastName: p.employee.lastName,
+      bankName: p.employee.bankName || "",
+      bankBranch: p.employee.bankBranch || "",
+      accountNumber: p.employee.bankAccountNumber || "",
+      netSalary: p.netSalary,
+      epfNumber: p.employee.epfNumber || "",
+      nic: p.employee.nic || "",
+    }));
+  }, [payrollData]);
 
   const contributionTotals = useMemo(() => 
     contributionData.reduce(
@@ -148,6 +165,7 @@ const Reports = () => {
           <TabsTrigger value="payroll">Payroll Summary</TabsTrigger>
           <TabsTrigger value="contributions">EPF/ETF Report</TabsTrigger>
           <TabsTrigger value="leave">Leave Balances</TabsTrigger>
+          <TabsTrigger value="bank">Bank File Export</TabsTrigger>
         </TabsList>
 
         {/* Payroll Summary Tab */}
@@ -361,6 +379,11 @@ const Reports = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Bank File Export Tab */}
+        <TabsContent value="bank">
+          <BankFileExport payrollData={bankFileData} month={monthDate} />
         </TabsContent>
       </Tabs>
     </MainLayout>
