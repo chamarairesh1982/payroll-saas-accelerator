@@ -1,0 +1,176 @@
+import { SalaryComponent } from "@/types/payroll";
+
+export const mockSalaryComponents: SalaryComponent[] = [
+  {
+    id: "sc-1",
+    companyId: "company-1",
+    name: "Transport Allowance",
+    type: "allowance",
+    category: "fixed",
+    calculationType: "fixed",
+    value: 5000,
+    isTaxable: true,
+    isEpfApplicable: false,
+    isActive: true,
+    createdAt: new Date("2024-01-01"),
+    updatedAt: new Date("2024-01-01"),
+  },
+  {
+    id: "sc-2",
+    companyId: "company-1",
+    name: "Medical Allowance",
+    type: "allowance",
+    category: "fixed",
+    calculationType: "fixed",
+    value: 3000,
+    isTaxable: false,
+    isEpfApplicable: false,
+    isActive: true,
+    createdAt: new Date("2024-01-01"),
+    updatedAt: new Date("2024-01-01"),
+  },
+  {
+    id: "sc-3",
+    companyId: "company-1",
+    name: "Housing Allowance",
+    type: "allowance",
+    category: "percentage",
+    calculationType: "basic",
+    value: 10,
+    isTaxable: true,
+    isEpfApplicable: true,
+    isActive: true,
+    createdAt: new Date("2024-01-01"),
+    updatedAt: new Date("2024-01-01"),
+  },
+  {
+    id: "sc-4",
+    companyId: "company-1",
+    name: "Performance Bonus",
+    type: "allowance",
+    category: "variable",
+    calculationType: "fixed",
+    value: 0,
+    isTaxable: true,
+    isEpfApplicable: false,
+    isActive: true,
+    createdAt: new Date("2024-01-01"),
+    updatedAt: new Date("2024-01-01"),
+  },
+  {
+    id: "sc-5",
+    companyId: "company-1",
+    name: "Meal Allowance",
+    type: "allowance",
+    category: "fixed",
+    calculationType: "fixed",
+    value: 2000,
+    isTaxable: false,
+    isEpfApplicable: false,
+    isActive: true,
+    createdAt: new Date("2024-01-01"),
+    updatedAt: new Date("2024-01-01"),
+  },
+  {
+    id: "sc-6",
+    companyId: "company-1",
+    name: "Attendance Bonus",
+    type: "allowance",
+    category: "variable",
+    calculationType: "fixed",
+    value: 1500,
+    isTaxable: true,
+    isEpfApplicable: false,
+    isActive: false,
+    createdAt: new Date("2024-01-01"),
+    updatedAt: new Date("2024-06-01"),
+  },
+  {
+    id: "sc-7",
+    companyId: "company-1",
+    name: "Insurance Premium",
+    type: "deduction",
+    category: "fixed",
+    calculationType: "fixed",
+    value: 1500,
+    isTaxable: false,
+    isEpfApplicable: false,
+    isActive: true,
+    createdAt: new Date("2024-01-01"),
+    updatedAt: new Date("2024-01-01"),
+  },
+  {
+    id: "sc-8",
+    companyId: "company-1",
+    name: "Union Fees",
+    type: "deduction",
+    category: "percentage",
+    calculationType: "basic",
+    value: 1,
+    isTaxable: false,
+    isEpfApplicable: false,
+    isActive: true,
+    createdAt: new Date("2024-01-01"),
+    updatedAt: new Date("2024-01-01"),
+  },
+  {
+    id: "sc-9",
+    companyId: "company-1",
+    name: "Late Deduction",
+    type: "deduction",
+    category: "variable",
+    calculationType: "fixed",
+    value: 0,
+    isTaxable: false,
+    isEpfApplicable: false,
+    isActive: true,
+    createdAt: new Date("2024-01-01"),
+    updatedAt: new Date("2024-01-01"),
+  },
+  {
+    id: "sc-10",
+    companyId: "company-1",
+    name: "Welfare Fund",
+    type: "deduction",
+    category: "fixed",
+    calculationType: "fixed",
+    value: 500,
+    isTaxable: false,
+    isEpfApplicable: false,
+    isActive: true,
+    createdAt: new Date("2024-01-01"),
+    updatedAt: new Date("2024-01-01"),
+  },
+];
+
+export const getComponentStats = () => {
+  const activeAllowances = mockSalaryComponents.filter(c => c.type === 'allowance' && c.isActive);
+  const activeDeductions = mockSalaryComponents.filter(c => c.type === 'deduction' && c.isActive);
+  const fixedAllowancesTotal = activeAllowances
+    .filter(c => c.category === 'fixed')
+    .reduce((sum, c) => sum + c.value, 0);
+  const fixedDeductionsTotal = activeDeductions
+    .filter(c => c.category === 'fixed')
+    .reduce((sum, c) => sum + c.value, 0);
+
+  return {
+    totalAllowances: mockSalaryComponents.filter(c => c.type === 'allowance').length,
+    activeAllowances: activeAllowances.length,
+    totalDeductions: mockSalaryComponents.filter(c => c.type === 'deduction').length,
+    activeDeductions: activeDeductions.length,
+    fixedAllowancesTotal,
+    fixedDeductionsTotal,
+  };
+};
+
+export const componentCategories = [
+  { value: "fixed", label: "Fixed Amount", description: "Same amount every month" },
+  { value: "percentage", label: "Percentage", description: "Calculated as % of base" },
+  { value: "variable", label: "Variable", description: "Changes each pay period" },
+];
+
+export const calculationTypes = [
+  { value: "basic", label: "Based on Basic Salary" },
+  { value: "gross", label: "Based on Gross Salary" },
+  { value: "fixed", label: "Fixed Amount" },
+];
