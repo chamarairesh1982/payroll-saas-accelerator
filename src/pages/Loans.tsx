@@ -1,27 +1,26 @@
 import { useState, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { CreditCard, Plus, Search, Eye, TrendingDown, Wallet, Clock, CheckCircle2 } from "lucide-react";
+import { CreditCard, Plus, Search, Eye, TrendingDown, Wallet, Clock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { format } from "date-fns";
-import { mockLoans, getLoanStats, formatLoanType, loanTypes } from "@/data/mockLoans";
-import { Loan } from "@/types/payroll";
+import { useLoans, loanTypes, formatLoanType, Loan } from "@/hooks/useLoans";
 import { LoanModal } from "@/components/loans/LoanModal";
 import { LoanDetailsModal } from "@/components/loans/LoanDetailsModal";
 import { Progress } from "@/components/ui/progress";
 
-const statusConfig: Record<Loan['status'], { label: string; variant: "default" | "secondary" | "destructive" }> = {
+const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
   active: { label: "Active", variant: "default" },
   completed: { label: "Completed", variant: "secondary" },
   defaulted: { label: "Defaulted", variant: "destructive" },
 };
 
 const Loans = () => {
+  const { loans, stats, isLoading } = useLoans();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -29,21 +28,19 @@ const Loans = () => {
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
-  const stats = useMemo(() => getLoanStats(), []);
-
   const filteredLoans = useMemo(() => {
-    return mockLoans.filter(loan => {
-      const matchesSearch = 
-        loan.employee.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        loan.employee.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        loan.employee.employeeNumber.toLowerCase().includes(searchQuery.toLowerCase());
-      
+    return loans.filter((loan) => {
+      const fullName = `${loan.employee?.first_name || ""} ${loan.employee?.last_name || ""}`.toLowerCase();
+      const matchesSearch =
+        fullName.includes(searchQuery.toLowerCase()) ||
+        (loan.employee?.employee_number || "").toLowerCase().includes(searchQuery.toLowerCase());
+
       const matchesStatus = statusFilter === "all" || loan.status === statusFilter;
-      const matchesType = typeFilter === "all" || loan.loanType === typeFilter;
-      
+      const matchesType = typeFilter === "all" || loan.loan_type === typeFilter;
+
       return matchesSearch && matchesStatus && matchesType;
     });
-  }, [searchQuery, statusFilter, typeFilter]);
+  }, [loans, searchQuery, statusFilter, typeFilter]);
 
   const handleViewDetails = (loan: Loan) => {
     setSelectedLoan(loan);
@@ -51,9 +48,19 @@ const Loans = () => {
   };
 
   const getRepaymentProgress = (loan: Loan) => {
-    const paid = loan.principalAmount - loan.outstandingAmount;
-    return (paid / loan.principalAmount) * 100;
+    const paid = Number(loan.principal_amount) - Number(loan.outstanding_amount);
+    return (paid / Number(loan.principal_amount)) * 100;
   };
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="flex h-[50vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
@@ -69,12 +76,8 @@ const Loans = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Active Loans</CardTitle>
@@ -87,11 +90,7 @@ const Loans = () => {
           </Card>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Disbursed</CardTitle>
@@ -104,11 +103,7 @@ const Loans = () => {
           </Card>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Outstanding</CardTitle>
@@ -121,11 +116,7 @@ const Loans = () => {
           </Card>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Monthly Deductions</CardTitle>
@@ -140,9 +131,9 @@ const Loans = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search by employee name or ID..."
             value={searchQuery}
@@ -167,8 +158,10 @@ const Loans = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
-            {loanTypes.map(type => (
-              <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+            {loanTypes.map((type) => (
+              <SelectItem key={type.value} value={type.value}>
+                {type.label}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -179,7 +172,7 @@ const Loans = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="rounded-xl border bg-card shadow-sm overflow-hidden"
+        className="overflow-hidden rounded-xl border bg-card shadow-sm"
       >
         <Table>
           <TableHeader>
@@ -209,35 +202,33 @@ const Loans = () => {
                 <TableRow key={loan.id} className="hover:bg-muted/30">
                   <TableCell>
                     <div>
-                      <p className="font-medium">{loan.employee.firstName} {loan.employee.lastName}</p>
-                      <p className="text-sm text-muted-foreground">{loan.employee.employeeNumber}</p>
+                      <p className="font-medium">
+                        {loan.employee?.first_name} {loan.employee?.last_name}
+                      </p>
+                      <p className="text-sm text-muted-foreground">{loan.employee?.employee_number || "N/A"}</p>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{formatLoanType(loan.loanType)}</Badge>
+                    <Badge variant="outline">{formatLoanType(loan.loan_type)}</Badge>
                   </TableCell>
                   <TableCell className="text-right font-medium">
-                    LKR {loan.principalAmount.toLocaleString()}
+                    LKR {Number(loan.principal_amount).toLocaleString()}
                   </TableCell>
                   <TableCell className="text-right">
-                    <span className={loan.outstandingAmount > 0 ? "text-destructive" : "text-success"}>
-                      LKR {loan.outstandingAmount.toLocaleString()}
+                    <span className={Number(loan.outstanding_amount) > 0 ? "text-destructive" : "text-success"}>
+                      LKR {Number(loan.outstanding_amount).toLocaleString()}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right">
-                    LKR {loan.monthlyDeduction.toLocaleString()}
-                  </TableCell>
+                  <TableCell className="text-right">LKR {Number(loan.monthly_deduction).toLocaleString()}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2 min-w-[100px]">
+                    <div className="flex min-w-[100px] items-center gap-2">
                       <Progress value={getRepaymentProgress(loan)} className="h-2" />
-                      <span className="text-xs text-muted-foreground w-10">
-                        {getRepaymentProgress(loan).toFixed(0)}%
-                      </span>
+                      <span className="w-10 text-xs text-muted-foreground">{getRepaymentProgress(loan).toFixed(0)}%</span>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={statusConfig[loan.status].variant}>
-                      {statusConfig[loan.status].label}
+                    <Badge variant={statusConfig[loan.status]?.variant || "secondary"}>
+                      {statusConfig[loan.status]?.label || loan.status}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
@@ -253,7 +244,35 @@ const Loans = () => {
       </motion.div>
 
       <LoanModal open={showLoanModal} onOpenChange={setShowLoanModal} />
-      <LoanDetailsModal loan={selectedLoan} open={showDetailsModal} onOpenChange={setShowDetailsModal} />
+      <LoanDetailsModal
+        loan={
+          selectedLoan
+            ? ({
+                id: selectedLoan.id,
+                employeeId: selectedLoan.employee_id,
+                employee: {
+                  firstName: selectedLoan.employee?.first_name || "",
+                  lastName: selectedLoan.employee?.last_name || "",
+                  employeeNumber: selectedLoan.employee?.employee_number || "",
+                  department: selectedLoan.employee?.department || "",
+                } as any,
+                loanType: selectedLoan.loan_type,
+                principalAmount: Number(selectedLoan.principal_amount),
+                outstandingAmount: Number(selectedLoan.outstanding_amount),
+                monthlyDeduction: Number(selectedLoan.monthly_deduction),
+                interestRate: Number(selectedLoan.interest_rate),
+                startDate: new Date(selectedLoan.start_date),
+                expectedEndDate: new Date(selectedLoan.expected_end_date),
+                status: selectedLoan.status,
+                approvedBy: selectedLoan.approved_by || undefined,
+                approvedAt: selectedLoan.approved_at ? new Date(selectedLoan.approved_at) : undefined,
+                createdAt: new Date(selectedLoan.created_at),
+              } as any)
+            : null
+        }
+        open={showDetailsModal}
+        onOpenChange={setShowDetailsModal}
+      />
     </MainLayout>
   );
 };

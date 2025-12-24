@@ -6,16 +6,13 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  AlertCircle,
-  Filter,
   Search,
   Eye,
   Check,
   X,
-  MoreHorizontal,
   Users,
   CalendarDays,
-  CalendarCheck,
+  Loader2,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -36,24 +33,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { LeaveRequestModal } from "@/components/leave/LeaveRequestModal";
 import { LeaveApprovalModal } from "@/components/leave/LeaveApprovalModal";
 import { LeaveBalanceCard } from "@/components/leave/LeaveBalanceCard";
-import { mockLeaveRequests, leaveTypes } from "@/data/mockLeave";
-import { LeaveRequest } from "@/types/payroll";
+import { useLeaveRequests, useLeaveTypes, LeaveRequest } from "@/hooks/useLeave";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
-const statusConfig = {
+const statusConfig: Record<string, { label: string; icon: React.ElementType; className: string }> = {
   pending: {
     label: "Pending",
     icon: Clock,
@@ -77,10 +66,10 @@ const statusConfig = {
 };
 
 const Leave = () => {
-  const { toast } = useToast();
+  const { leaveRequests, isLoading, approveLeaveRequest, rejectLeaveRequest, isApproving } = useLeaveRequests();
+  const { leaveTypes } = useLeaveTypes();
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
-  const [leaveRequests, setLeaveRequests] = useState(mockLeaveRequests);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -88,76 +77,50 @@ const Leave = () => {
   const stats = useMemo(() => {
     const pending = leaveRequests.filter((r) => r.status === "pending").length;
     const approved = leaveRequests.filter((r) => r.status === "approved").length;
+    const today = new Date();
     const onLeaveToday = leaveRequests.filter(
       (r) =>
         r.status === "approved" &&
-        new Date(r.startDate) <= new Date() &&
-        new Date(r.endDate) >= new Date()
+        new Date(r.start_date) <= today &&
+        new Date(r.end_date) >= today
     ).length;
     const totalDays = leaveRequests
       .filter((r) => r.status === "approved")
-      .reduce((sum, r) => sum + r.days, 0);
+      .reduce((sum, r) => sum + Number(r.days), 0);
 
     return { pending, approved, onLeaveToday, totalDays };
   }, [leaveRequests]);
 
   const filteredRequests = useMemo(() => {
     return leaveRequests.filter((request) => {
-      const matchesSearch =
-        searchQuery === "" ||
-        `${request.employee.firstName} ${request.employee.lastName}`
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase());
-      const matchesStatus =
-        statusFilter === "all" || request.status === statusFilter;
-      const matchesType =
-        typeFilter === "all" || request.leaveTypeId === typeFilter;
+      const fullName = `${request.employee?.first_name || ""} ${request.employee?.last_name || ""}`.toLowerCase();
+      const matchesSearch = searchQuery === "" || fullName.includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === "all" || request.status === statusFilter;
+      const matchesType = typeFilter === "all" || request.leave_type_id === typeFilter;
 
       return matchesSearch && matchesStatus && matchesType;
     });
   }, [leaveRequests, searchQuery, statusFilter, typeFilter]);
 
   const handleApprove = (requestId: string) => {
-    setLeaveRequests((prev) =>
-      prev.map((r) =>
-        r.id === requestId
-          ? {
-              ...r,
-              status: "approved" as const,
-              approvedBy: "Admin User",
-              approvedAt: new Date(),
-              updatedAt: new Date(),
-            }
-          : r
-      )
-    );
+    approveLeaveRequest(requestId);
     setSelectedRequest(null);
-    toast({
-      title: "Leave Approved",
-      description: "The leave request has been approved successfully.",
-    });
   };
 
   const handleReject = (requestId: string, reason: string) => {
-    setLeaveRequests((prev) =>
-      prev.map((r) =>
-        r.id === requestId
-          ? {
-              ...r,
-              status: "rejected" as const,
-              rejectionReason: reason,
-              updatedAt: new Date(),
-            }
-          : r
-      )
-    );
+    rejectLeaveRequest({ requestId, reason });
     setSelectedRequest(null);
-    toast({
-      title: "Leave Rejected",
-      description: "The leave request has been rejected.",
-      variant: "destructive",
-    });
   };
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="flex h-[50vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
@@ -167,7 +130,27 @@ const Leave = () => {
         )}
         {selectedRequest && (
           <LeaveApprovalModal
-            request={selectedRequest}
+            request={{
+              id: selectedRequest.id,
+              employeeId: selectedRequest.employee_id,
+              employee: {
+                firstName: selectedRequest.employee?.first_name || "",
+                lastName: selectedRequest.employee?.last_name || "",
+                department: selectedRequest.employee?.department || "",
+              } as any,
+              leaveTypeId: selectedRequest.leave_type_id,
+              leaveType: {
+                name: selectedRequest.leave_type?.name || "",
+                code: selectedRequest.leave_type?.code || "",
+              } as any,
+              startDate: new Date(selectedRequest.start_date),
+              endDate: new Date(selectedRequest.end_date),
+              days: Number(selectedRequest.days),
+              reason: selectedRequest.reason || "",
+              status: selectedRequest.status,
+              createdAt: new Date(selectedRequest.created_at),
+              updatedAt: new Date(selectedRequest.updated_at),
+            } as any}
             onClose={() => setSelectedRequest(null)}
             onApprove={handleApprove}
             onReject={handleReject}
@@ -202,7 +185,7 @@ const Leave = () => {
         <StatCard
           title="Approved This Month"
           value={stats.approved}
-          subtitle="December 2024"
+          subtitle={format(new Date(), "MMMM yyyy")}
           icon={<CheckCircle2 className="h-6 w-6" />}
           variant="success"
           delay={0.15}
@@ -281,7 +264,7 @@ const Leave = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="rounded-xl border border-border bg-card shadow-sm overflow-hidden"
+            className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
           >
             <Table>
               <TableHeader>
@@ -297,7 +280,8 @@ const Leave = () => {
               </TableHeader>
               <TableBody>
                 {filteredRequests.map((request, index) => {
-                  const StatusIcon = statusConfig[request.status].icon;
+                  const status = statusConfig[request.status] || statusConfig.pending;
+                  const StatusIcon = status.icon;
                   return (
                     <motion.tr
                       key={request.id}
@@ -309,60 +293,54 @@ const Leave = () => {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                            {request.employee.firstName[0]}
-                            {request.employee.lastName[0]}
+                            {(request.employee?.first_name || "?")[0]}
+                            {(request.employee?.last_name || "?")[0]}
                           </div>
                           <div>
                             <p className="font-medium">
-                              {request.employee.firstName} {request.employee.lastName}
+                              {request.employee?.first_name} {request.employee?.last_name}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {request.employee.department}
+                              {request.employee?.department || "N/A"}
                             </p>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{request.leaveType.name}</Badge>
+                        <Badge variant="secondary">{request.leave_type?.name || "N/A"}</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
                           <p>
-                            {new Date(request.startDate).toLocaleDateString("en-LK", {
-                              day: "numeric",
-                              month: "short",
-                            })}
-                            {request.days > 1 && (
+                            {format(new Date(request.start_date), "d MMM")}
+                            {Number(request.days) > 1 && (
                               <>
                                 {" - "}
-                                {new Date(request.endDate).toLocaleDateString("en-LK", {
-                                  day: "numeric",
-                                  month: "short",
-                                })}
+                                {format(new Date(request.end_date), "d MMM")}
                               </>
                             )}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {new Date(request.startDate).getFullYear()}
+                            {format(new Date(request.start_date), "yyyy")}
                           </p>
                         </div>
                       </TableCell>
                       <TableCell>
                         <span className="font-medium">{request.days}</span>
-                        <span className="text-muted-foreground"> day{request.days > 1 ? "s" : ""}</span>
+                        <span className="text-muted-foreground">
+                          {" "}
+                          day{Number(request.days) > 1 ? "s" : ""}
+                        </span>
                       </TableCell>
                       <TableCell className="max-w-[200px]">
                         <p className="truncate text-sm text-muted-foreground">
-                          {request.reason}
+                          {request.reason || "N/A"}
                         </p>
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={cn("gap-1", statusConfig[request.status].className)}
-                        >
+                        <Badge variant="outline" className={cn("gap-1", status.className)}>
                           <StatusIcon className="h-3 w-3" />
-                          {statusConfig[request.status].label}
+                          {status.label}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -374,6 +352,7 @@ const Leave = () => {
                                 size="icon-sm"
                                 className="text-success hover:bg-success/10 hover:text-success"
                                 onClick={() => handleApprove(request.id)}
+                                disabled={isApproving}
                               >
                                 <Check className="h-4 w-4" />
                               </Button>
@@ -436,25 +415,36 @@ const Leave = () => {
                   <Badge variant="secondary" className="text-lg font-bold">
                     {type.code}
                   </Badge>
-                  <Badge variant={type.isPaid ? "default" : "outline"}>
-                    {type.isPaid ? "Paid" : "Unpaid"}
+                  <Badge variant={type.is_paid ? "default" : "outline"}>
+                    {type.is_paid ? "Paid" : "Unpaid"}
                   </Badge>
                 </div>
                 <h3 className="font-display text-lg font-semibold">{type.name}</h3>
                 <div className="mt-4 space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Days Per Year</span>
-                    <span className="font-medium">{type.daysPerYear}</span>
+                    <span className="font-medium">{type.days_per_year}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Carry Forward</span>
                     <span className="font-medium">
-                      {type.isCarryForward ? `Up to ${type.maxCarryForward} days` : "No"}
+                      {type.is_carry_forward ? `Up to ${type.max_carry_forward} days` : "No"}
                     </span>
                   </div>
                 </div>
               </motion.div>
             ))}
+            {leaveTypes.length === 0 && (
+              <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
+                <Calendar className="h-12 w-12 text-muted-foreground/50" />
+                <p className="mt-4 font-medium text-muted-foreground">
+                  No leave types configured
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Add leave types to get started
+                </p>
+              </div>
+            )}
           </motion.div>
         </TabsContent>
       </Tabs>

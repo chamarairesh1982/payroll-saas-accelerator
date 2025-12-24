@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Clock, Plus, Search, Eye, Settings2, CheckCircle2, XCircle, AlertCircle, TrendingUp, DollarSign, Users } from "lucide-react";
+import { Clock, Plus, Search, Eye, Settings2, CheckCircle2, XCircle, AlertCircle, DollarSign, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -10,45 +10,41 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
-import { mockOvertimeEntries, mockOvertimeRates, getOvertimeStats, formatDayType } from "@/data/mockOvertime";
-import { OvertimeEntry } from "@/types/payroll";
+import { useOvertimeEntries, useOvertimeRates, formatDayType, OvertimeEntry } from "@/hooks/useOvertime";
 import { OvertimeEntryModal } from "@/components/overtime/OvertimeEntryModal";
 import { OvertimeApprovalModal } from "@/components/overtime/OvertimeApprovalModal";
 import { OvertimeRatesModal } from "@/components/overtime/OvertimeRatesModal";
 
-const statusConfig: Record<OvertimeEntry['status'], { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ReactNode }> = {
+const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ReactNode }> = {
   pending: { label: "Pending", variant: "outline", icon: <AlertCircle className="h-3 w-3" /> },
   approved: { label: "Approved", variant: "default", icon: <CheckCircle2 className="h-3 w-3" /> },
   rejected: { label: "Rejected", variant: "destructive", icon: <XCircle className="h-3 w-3" /> },
 };
 
 const Overtime = () => {
+  const { overtimeEntries, stats, isLoading, approveOvertimeEntry, rejectOvertimeEntry, isApproving } = useOvertimeEntries();
+  const { overtimeRates } = useOvertimeRates();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showEntryModal, setShowEntryModal] = useState(false);
   const [showRatesModal, setShowRatesModal] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<OvertimeEntry | null>(null);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
-  const [entries, setEntries] = useState(mockOvertimeEntries);
-
-  const stats = useMemo(() => getOvertimeStats(), []);
 
   const filteredEntries = useMemo(() => {
-    return entries.filter(entry => {
-      const matchesSearch = 
-        entry.employee.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        entry.employee.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        entry.employee.employeeNumber.toLowerCase().includes(searchQuery.toLowerCase());
-      
+    return overtimeEntries.filter((entry) => {
+      const fullName = `${entry.employee?.first_name || ""} ${entry.employee?.last_name || ""}`.toLowerCase();
+      const matchesSearch =
+        fullName.includes(searchQuery.toLowerCase()) ||
+        (entry.employee?.employee_number || "").toLowerCase().includes(searchQuery.toLowerCase());
+
       const matchesStatus = statusFilter === "all" || entry.status === statusFilter;
-      
+
       return matchesSearch && matchesStatus;
     });
-  }, [entries, searchQuery, statusFilter]);
+  }, [overtimeEntries, searchQuery, statusFilter]);
 
-  const pendingEntries = useMemo(() => 
-    entries.filter(e => e.status === "pending"), 
-  [entries]);
+  const pendingEntries = useMemo(() => overtimeEntries.filter((e) => e.status === "pending"), [overtimeEntries]);
 
   const handleReviewEntry = (entry: OvertimeEntry) => {
     setSelectedEntry(entry);
@@ -56,20 +52,22 @@ const Overtime = () => {
   };
 
   const handleApprove = (entryId: string) => {
-    setEntries(prev => prev.map(e => 
-      e.id === entryId 
-        ? { ...e, status: 'approved' as const, approvedBy: 'Current User', approvedAt: new Date() }
-        : e
-    ));
+    approveOvertimeEntry(entryId);
   };
 
   const handleReject = (entryId: string, reason: string) => {
-    setEntries(prev => prev.map(e => 
-      e.id === entryId 
-        ? { ...e, status: 'rejected' as const, approvedBy: 'Current User', approvedAt: new Date() }
-        : e
-    ));
+    rejectOvertimeEntry(entryId);
   };
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="flex h-[50vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
@@ -91,7 +89,7 @@ const Overtime = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -151,7 +149,7 @@ const Overtime = () => {
           <TabsTrigger value="pending" className="relative">
             Pending Approval
             {pendingEntries.length > 0 && (
-              <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
+              <Badge variant="destructive" className="ml-2 flex h-5 w-5 items-center justify-center p-0 text-xs">
                 {pendingEntries.length}
               </Badge>
             )}
@@ -161,9 +159,9 @@ const Overtime = () => {
 
         <TabsContent value="entries">
           {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-4">
+          <div className="mb-4 flex flex-col gap-4 sm:flex-row">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search by employee name or ID..."
                 value={searchQuery}
@@ -185,11 +183,7 @@ const Overtime = () => {
           </div>
 
           {/* Entries Table */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-xl border bg-card shadow-sm overflow-hidden"
-          >
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="overflow-hidden rounded-xl border bg-card shadow-sm">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -217,29 +211,29 @@ const Overtime = () => {
                     <TableRow key={entry.id} className="hover:bg-muted/30">
                       <TableCell>
                         <div>
-                          <p className="font-medium">{entry.employee.firstName} {entry.employee.lastName}</p>
-                          <p className="text-sm text-muted-foreground">{entry.employee.employeeNumber}</p>
+                          <p className="font-medium">
+                            {entry.employee?.first_name} {entry.employee?.last_name}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{entry.employee?.employee_number || "N/A"}</p>
                         </div>
                       </TableCell>
-                      <TableCell>{format(entry.date, "dd MMM yyyy")}</TableCell>
+                      <TableCell>{format(new Date(entry.date), "dd MMM yyyy")}</TableCell>
                       <TableCell className="text-center font-medium">{entry.hours}</TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {entry.overtimeRate.name} ({entry.overtimeRate.multiplier}x)
+                          {entry.overtime_rate?.name || "N/A"} ({entry.overtime_rate?.multiplier || 1}x)
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right font-medium">
-                        LKR {entry.calculatedAmount.toLocaleString()}
-                      </TableCell>
+                      <TableCell className="text-right font-medium">LKR {Number(entry.calculated_amount).toLocaleString()}</TableCell>
                       <TableCell>
-                        <Badge variant={statusConfig[entry.status].variant} className="gap-1">
-                          {statusConfig[entry.status].icon}
-                          {statusConfig[entry.status].label}
+                        <Badge variant={statusConfig[entry.status]?.variant || "outline"} className="gap-1">
+                          {statusConfig[entry.status]?.icon}
+                          {statusConfig[entry.status]?.label || entry.status}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         {entry.status === "pending" ? (
-                          <Button variant="outline" size="sm" onClick={() => handleReviewEntry(entry)}>
+                          <Button variant="outline" size="sm" onClick={() => handleReviewEntry(entry)} disabled={isApproving}>
                             Review
                           </Button>
                         ) : (
@@ -257,11 +251,7 @@ const Overtime = () => {
         </TabsContent>
 
         <TabsContent value="pending">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-xl border bg-card shadow-sm overflow-hidden"
-          >
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="overflow-hidden rounded-xl border bg-card shadow-sm">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -288,22 +278,22 @@ const Overtime = () => {
                     <TableRow key={entry.id} className="hover:bg-muted/30">
                       <TableCell>
                         <div>
-                          <p className="font-medium">{entry.employee.firstName} {entry.employee.lastName}</p>
-                          <p className="text-sm text-muted-foreground">{entry.employee.department}</p>
+                          <p className="font-medium">
+                            {entry.employee?.first_name} {entry.employee?.last_name}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{entry.employee?.department || "N/A"}</p>
                         </div>
                       </TableCell>
-                      <TableCell>{format(entry.date, "dd MMM yyyy")}</TableCell>
+                      <TableCell>{format(new Date(entry.date), "dd MMM yyyy")}</TableCell>
                       <TableCell className="text-center font-medium">{entry.hours}</TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {entry.overtimeRate.name} ({entry.overtimeRate.multiplier}x)
+                          {entry.overtime_rate?.name || "N/A"} ({entry.overtime_rate?.multiplier || 1}x)
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right font-medium">
-                        LKR {entry.calculatedAmount.toLocaleString()}
-                      </TableCell>
+                      <TableCell className="text-right font-medium">LKR {Number(entry.calculated_amount).toLocaleString()}</TableCell>
                       <TableCell className="text-right">
-                        <Button size="sm" onClick={() => handleReviewEntry(entry)}>
+                        <Button size="sm" onClick={() => handleReviewEntry(entry)} disabled={isApproving}>
                           Review
                         </Button>
                       </TableCell>
@@ -316,11 +306,7 @@ const Overtime = () => {
         </TabsContent>
 
         <TabsContent value="rates">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-xl border bg-card shadow-sm overflow-hidden"
-          >
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="overflow-hidden rounded-xl border bg-card shadow-sm">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -332,28 +318,40 @@ const Overtime = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockOvertimeRates.map((rate) => (
-                  <TableRow key={rate.id}>
-                    <TableCell className="font-medium">{rate.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{formatDayType(rate.dayType)}</Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <span className="font-semibold text-primary text-lg">{rate.multiplier}x</span>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {rate.multiplier === 1.5 && "Standard overtime rate"}
-                      {rate.multiplier === 2.0 && "Double time for Saturday work"}
-                      {rate.multiplier === 2.5 && "Premium rate for Sunday work"}
-                      {rate.multiplier === 3.0 && "Triple time for public holidays"}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={rate.isActive ? "default" : "secondary"}>
-                        {rate.isActive ? "Active" : "Inactive"}
-                      </Badge>
+                {overtimeRates.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-32 text-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <Settings2 className="h-8 w-8 text-muted-foreground/50" />
+                        <p className="text-muted-foreground">No overtime rates configured</p>
+                        <Button variant="outline" size="sm" onClick={() => setShowRatesModal(true)}>
+                          Configure Rates
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  overtimeRates.map((rate) => (
+                    <TableRow key={rate.id}>
+                      <TableCell className="font-medium">{rate.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{formatDayType(rate.day_type)}</Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className="text-lg font-semibold text-primary">{rate.multiplier}x</span>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {Number(rate.multiplier) === 1.5 && "Standard overtime rate"}
+                        {Number(rate.multiplier) === 2.0 && "Double time for Saturday work"}
+                        {Number(rate.multiplier) === 2.5 && "Premium rate for Sunday work"}
+                        {Number(rate.multiplier) === 3.0 && "Triple time for public holidays"}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant={rate.is_active ? "default" : "secondary"}>{rate.is_active ? "Active" : "Inactive"}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </motion.div>
@@ -361,9 +359,33 @@ const Overtime = () => {
       </Tabs>
 
       <OvertimeEntryModal open={showEntryModal} onOpenChange={setShowEntryModal} />
-      <OvertimeApprovalModal 
-        entry={selectedEntry} 
-        open={showApprovalModal} 
+      <OvertimeApprovalModal
+        entry={
+          selectedEntry
+            ? ({
+                id: selectedEntry.id,
+                employeeId: selectedEntry.employee_id,
+                employee: {
+                  firstName: selectedEntry.employee?.first_name || "",
+                  lastName: selectedEntry.employee?.last_name || "",
+                  department: selectedEntry.employee?.department || "",
+                  employeeNumber: selectedEntry.employee?.employee_number || "",
+                } as any,
+                date: new Date(selectedEntry.date),
+                hours: Number(selectedEntry.hours),
+                overtimeRateId: selectedEntry.overtime_rate_id,
+                overtimeRate: {
+                  name: selectedEntry.overtime_rate?.name || "",
+                  multiplier: Number(selectedEntry.overtime_rate?.multiplier || 1),
+                  dayType: selectedEntry.overtime_rate?.day_type || "weekday",
+                } as any,
+                calculatedAmount: Number(selectedEntry.calculated_amount),
+                status: selectedEntry.status,
+                createdAt: new Date(selectedEntry.created_at),
+              } as any)
+            : null
+        }
+        open={showApprovalModal}
         onOpenChange={setShowApprovalModal}
         onApprove={handleApprove}
         onReject={handleReject}
