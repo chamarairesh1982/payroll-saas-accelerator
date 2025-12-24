@@ -38,9 +38,11 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { LeaveRequestModal } from "@/components/leave/LeaveRequestModal";
 import { LeaveApprovalModal } from "@/components/leave/LeaveApprovalModal";
 import { LeaveBalanceCard } from "@/components/leave/LeaveBalanceCard";
+import { LeaveTypeModal } from "@/components/leave/LeaveTypeModal";
 import { useLeaveRequests, useLeaveTypes, LeaveRequest } from "@/hooks/useLeave";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 const statusConfig: Record<string, { label: string; icon: React.ElementType; className: string }> = {
   pending: {
@@ -69,6 +71,7 @@ const Leave = () => {
   const { leaveRequests, isLoading, approveLeaveRequest, rejectLeaveRequest, isApproving } = useLeaveRequests();
   const { leaveTypes } = useLeaveTypes();
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [showLeaveTypeModal, setShowLeaveTypeModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -158,6 +161,8 @@ const Leave = () => {
         )}
       </AnimatePresence>
 
+      <LeaveTypeModal open={showLeaveTypeModal} onOpenChange={setShowLeaveTypeModal} />
+
       {/* Header */}
       <div className="page-header">
         <div>
@@ -166,7 +171,17 @@ const Leave = () => {
             Manage leave requests, approvals, and track balances.
           </p>
         </div>
-        <Button size="lg" onClick={() => setShowRequestModal(true)}>
+        <Button
+          size="lg"
+          onClick={() => {
+            if (leaveTypes.length === 0) {
+              toast.error("Create a leave type first");
+              setShowLeaveTypeModal(true);
+              return;
+            }
+            setShowRequestModal(true);
+          }}
+        >
           <Plus className="h-5 w-5" />
           Request Leave
         </Button>
@@ -437,12 +452,12 @@ const Leave = () => {
             {leaveTypes.length === 0 && (
               <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
                 <Calendar className="h-12 w-12 text-muted-foreground/50" />
-                <p className="mt-4 font-medium text-muted-foreground">
-                  No leave types configured
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Add leave types to get started
-                </p>
+                <p className="mt-4 font-medium text-muted-foreground">No leave types configured</p>
+                <p className="text-sm text-muted-foreground">Add leave types to get started</p>
+                <Button className="mt-4" onClick={() => setShowLeaveTypeModal(true)}>
+                  <Plus className="h-4 w-4" />
+                  Add Leave Type
+                </Button>
               </div>
             )}
           </motion.div>
