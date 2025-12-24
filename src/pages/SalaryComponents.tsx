@@ -1,20 +1,53 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Calculator, Plus, Search, Edit2, Trash2, TrendingUp, TrendingDown, CheckCircle2, XCircle } from "lucide-react";
+import {
+  Calculator,
+  Plus,
+  Search,
+  Edit2,
+  Trash2,
+  TrendingUp,
+  TrendingDown,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { motion } from "framer-motion";
-import { mockSalaryComponents, getComponentStats, componentCategories } from "@/data/mockSalaryComponents";
-import { SalaryComponent } from "@/types/payroll";
 import { SalaryComponentModal } from "@/components/salary/SalaryComponentModal";
-import { toast } from "sonner";
+import { componentCategories } from "@/data/mockSalaryComponents";
+import { useSalaryComponents, type SalaryComponentRow } from "@/hooks/useSalaryComponents";
 
 const categoryBadgeVariants: Record<string, "default" | "secondary" | "outline"> = {
   fixed: "default",
@@ -23,26 +56,58 @@ const categoryBadgeVariants: Record<string, "default" | "secondary" | "outline">
 };
 
 const SalaryComponents = () => {
+  const { salaryComponents, isLoading, updateSalaryComponent, deleteSalaryComponent } =
+    useSalaryComponents();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [showModal, setShowModal] = useState(false);
-  const [selectedComponent, setSelectedComponent] = useState<SalaryComponent | null>(null);
-  const [components, setComponents] = useState(mockSalaryComponents);
-
-  const stats = useMemo(() => getComponentStats(), []);
+  const [selectedComponent, setSelectedComponent] = useState<SalaryComponentRow | null>(null);
 
   const filteredComponents = useMemo(() => {
-    return components.filter(comp => {
+    return salaryComponents.filter((comp) => {
       const matchesSearch = comp.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesType = typeFilter === "all" || comp.type === typeFilter;
       return matchesSearch && matchesType;
     });
-  }, [components, searchQuery, typeFilter]);
+  }, [salaryComponents, searchQuery, typeFilter]);
 
-  const allowances = useMemo(() => filteredComponents.filter(c => c.type === 'allowance'), [filteredComponents]);
-  const deductions = useMemo(() => filteredComponents.filter(c => c.type === 'deduction'), [filteredComponents]);
+  const allowances = useMemo(
+    () => filteredComponents.filter((c) => c.type === "allowance"),
+    [filteredComponents]
+  );
+  const deductions = useMemo(
+    () => filteredComponents.filter((c) => c.type === "deduction"),
+    [filteredComponents]
+  );
 
-  const handleEdit = (component: SalaryComponent) => {
+  const stats = useMemo(() => {
+    const activeAllowances = salaryComponents.filter(
+      (c) => c.type === "allowance" && c.is_active
+    );
+    const activeDeductions = salaryComponents.filter(
+      (c) => c.type === "deduction" && c.is_active
+    );
+
+    const fixedAllowancesTotal = activeAllowances
+      .filter((c) => c.category === "fixed")
+      .reduce((sum, c) => sum + Number(c.value), 0);
+
+    const fixedDeductionsTotal = activeDeductions
+      .filter((c) => c.category === "fixed")
+      .reduce((sum, c) => sum + Number(c.value), 0);
+
+    return {
+      totalAllowances: salaryComponents.filter((c) => c.type === "allowance").length,
+      activeAllowances: activeAllowances.length,
+      totalDeductions: salaryComponents.filter((c) => c.type === "deduction").length,
+      activeDeductions: activeDeductions.length,
+      fixedAllowancesTotal,
+      fixedDeductionsTotal,
+    };
+  }, [salaryComponents]);
+
+  const handleEdit = (component: SalaryComponentRow) => {
     setSelectedComponent(component);
     setShowModal(true);
   };
@@ -52,29 +117,33 @@ const SalaryComponents = () => {
     setShowModal(true);
   };
 
-  const handleToggleActive = (componentId: string) => {
-    setComponents(prev => prev.map(c => 
-      c.id === componentId ? { ...c, isActive: !c.isActive } : c
-    ));
-    toast.success("Status updated");
+  const handleToggleActive = (component: SalaryComponentRow) => {
+    updateSalaryComponent({
+      id: component.id,
+      updates: { is_active: !component.is_active },
+    });
   };
 
   const handleDelete = (componentId: string) => {
-    setComponents(prev => prev.filter(c => c.id !== componentId));
-    toast.success("Component deleted");
+    deleteSalaryComponent(componentId);
   };
 
-  const formatValue = (component: SalaryComponent) => {
+  const formatValue = (component: SalaryComponentRow) => {
     if (component.category === "percentage") {
-      return `${component.value}%`;
+      return `${Number(component.value)}%`;
     }
     if (component.category === "variable") {
-      return component.value > 0 ? `LKR ${component.value.toLocaleString()} (default)` : "Variable";
+      return Number(component.value) > 0
+        ? `LKR ${Number(component.value).toLocaleString()} (default)`
+        : "Variable";
     }
-    return `LKR ${component.value.toLocaleString()}`;
+    return `LKR ${Number(component.value).toLocaleString()}`;
   };
 
-  const renderComponentTable = (items: SalaryComponent[], type: 'allowance' | 'deduction') => (
+  const renderComponentTable = (
+    items: SalaryComponentRow[],
+    type: "allowance" | "deduction"
+  ) => (
     <div className="rounded-lg border overflow-hidden">
       <Table>
         <TableHeader>
@@ -93,7 +162,7 @@ const SalaryComponents = () => {
             <TableRow>
               <TableCell colSpan={7} className="h-24 text-center">
                 <div className="flex flex-col items-center gap-2">
-                  {type === 'allowance' ? (
+                  {type === "allowance" ? (
                     <TrendingUp className="h-8 w-8 text-muted-foreground/50" />
                   ) : (
                     <TrendingDown className="h-8 w-8 text-muted-foreground/50" />
@@ -104,10 +173,13 @@ const SalaryComponents = () => {
             </TableRow>
           ) : (
             items.map((component) => (
-              <TableRow key={component.id} className={!component.isActive ? "opacity-50" : ""}>
+              <TableRow
+                key={component.id}
+                className={!component.is_active ? "opacity-50" : ""}
+              >
                 <TableCell>
                   <div className="flex items-center gap-2">
-                    {type === 'allowance' ? (
+                    {type === "allowance" ? (
                       <TrendingUp className="h-4 w-4 text-success" />
                     ) : (
                       <TrendingDown className="h-4 w-4 text-destructive" />
@@ -117,21 +189,21 @@ const SalaryComponents = () => {
                 </TableCell>
                 <TableCell>
                   <Badge variant={categoryBadgeVariants[component.category]}>
-                    {componentCategories.find(c => c.value === component.category)?.label}
+                    {componentCategories.find((c) => c.value === component.category)?.label}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right font-medium">
                   {formatValue(component)}
                 </TableCell>
                 <TableCell className="text-center">
-                  {component.isTaxable ? (
+                  {component.is_taxable ? (
                     <CheckCircle2 className="h-4 w-4 text-success mx-auto" />
                   ) : (
                     <XCircle className="h-4 w-4 text-muted-foreground mx-auto" />
                   )}
                 </TableCell>
                 <TableCell className="text-center">
-                  {component.isEpfApplicable ? (
+                  {component.is_epf_applicable ? (
                     <CheckCircle2 className="h-4 w-4 text-success mx-auto" />
                   ) : (
                     <XCircle className="h-4 w-4 text-muted-foreground mx-auto" />
@@ -139,8 +211,8 @@ const SalaryComponents = () => {
                 </TableCell>
                 <TableCell className="text-center">
                   <Switch
-                    checked={component.isActive}
-                    onCheckedChange={() => handleToggleActive(component.id)}
+                    checked={component.is_active}
+                    onCheckedChange={() => handleToggleActive(component)}
                   />
                 </TableCell>
                 <TableCell className="text-right">
@@ -158,7 +230,8 @@ const SalaryComponents = () => {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete Component</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Are you sure you want to delete "{component.name}"? This action cannot be undone.
+                            Are you sure you want to delete "{component.name}"? This action
+                            cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -179,6 +252,16 @@ const SalaryComponents = () => {
     </div>
   );
 
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="flex h-[50vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
       <div className="page-header">
@@ -194,7 +277,11 @@ const SalaryComponents = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Allowances</CardTitle>
@@ -207,7 +294,11 @@ const SalaryComponents = () => {
           </Card>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Fixed Allowances</CardTitle>
@@ -220,7 +311,11 @@ const SalaryComponents = () => {
           </Card>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Deductions</CardTitle>
@@ -233,7 +328,11 @@ const SalaryComponents = () => {
           </Card>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Fixed Deductions</CardTitle>
@@ -284,22 +383,18 @@ const SalaryComponents = () => {
 
         <TabsContent value="allowances">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            {renderComponentTable(allowances, 'allowance')}
+            {renderComponentTable(allowances, "allowance")}
           </motion.div>
         </TabsContent>
 
         <TabsContent value="deductions">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            {renderComponentTable(deductions, 'deduction')}
+            {renderComponentTable(deductions, "deduction")}
           </motion.div>
         </TabsContent>
       </Tabs>
 
-      <SalaryComponentModal
-        open={showModal}
-        onOpenChange={setShowModal}
-        component={selectedComponent}
-      />
+      <SalaryComponentModal open={showModal} onOpenChange={setShowModal} component={selectedComponent} />
     </MainLayout>
   );
 };

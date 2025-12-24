@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,20 +16,22 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { mockEmployees } from "@/data/mockEmployees";
-import { loanTypes } from "@/data/mockLoans";
 import { addMonths, format } from "date-fns";
-import { toast } from "sonner";
-import { Calculator, AlertCircle } from "lucide-react";
+import { Calculator, AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useEmployees } from "@/hooks/useEmployees";
+import { useLoans, loanTypes } from "@/hooks/useLoans";
 
 const loanSchema = z.object({
   employeeId: z.string().min(1, "Please select an employee"),
   loanType: z.enum(["salary_advance", "personal_loan", "emergency_loan"]),
-  principalAmount: z.number().min(1000, "Minimum loan amount is LKR 1,000").max(1000000, "Maximum loan amount is LKR 1,000,000"),
+  principalAmount: z
+    .number()
+    .min(1000, "Minimum loan amount is LKR 1,000")
+    .max(1000000, "Maximum loan amount is LKR 1,000,000"),
   interestRate: z.number().min(0, "Interest rate cannot be negative").max(20, "Maximum interest rate is 20%"),
   tenure: z.number().min(1, "Minimum tenure is 1 month").max(24, "Maximum tenure is 24 months"),
-  reason: z.string().min(10, "Please provide a reason (min 10 characters)").max(500),
+  reason: z.string().trim().min(10, "Please provide a reason (min 10 characters)").max(500),
 });
 
 type LoanFormData = z.infer<typeof loanSchema>;
@@ -33,6 +42,9 @@ interface LoanModalProps {
 }
 
 export function LoanModal({ open, onOpenChange }: LoanModalProps) {
+  const { employees } = useEmployees();
+  const { createLoan, isCreating } = useLoans();
+
   const [calculatedValues, setCalculatedValues] = useState<{
     monthlyDeduction: number;
     totalInterest: number;
@@ -53,11 +65,13 @@ export function LoanModal({ open, onOpenChange }: LoanModalProps) {
   });
 
   const watchedValues = form.watch();
-  const selectedLoanType = loanTypes.find(lt => lt.value === watchedValues.loanType);
+  const selectedLoanType = loanTypes.find((lt) => lt.value === watchedValues.loanType);
+
+  const activeEmployees = employees.filter((e) => e.status === "active");
 
   const calculateLoan = () => {
     const { principalAmount, interestRate, tenure } = watchedValues;
-    
+
     if (principalAmount > 0 && tenure > 0) {
       const monthlyInterest = (principalAmount * (interestRate / 100)) / 12;
       const totalInterest = monthlyInterest * tenure;
@@ -75,18 +89,32 @@ export function LoanModal({ open, onOpenChange }: LoanModalProps) {
   };
 
   const onSubmit = (data: LoanFormData) => {
-    const employee = mockEmployees.find(e => e.id === data.employeeId);
-    toast.success("Loan Application Submitted", {
-      description: `Loan of LKR ${data.principalAmount.toLocaleString()} for ${employee?.firstName} ${employee?.lastName} has been submitted for approval.`,
-    });
-    onOpenChange(false);
-    form.reset();
-    setCalculatedValues(null);
+    if (!calculatedValues) return;
+
+    createLoan(
+      {
+        employee_id: data.employeeId,
+        loan_type: data.loanType,
+        principal_amount: data.principalAmount,
+        monthly_deduction: Math.round(calculatedValues.monthlyDeduction),
+        interest_rate: data.interestRate,
+        start_date: format(new Date(), "yyyy-MM-dd"),
+        expected_end_date: format(calculatedValues.expectedEndDate, "yyyy-MM-dd"),
+      },
+      {
+        onSuccess: () => {
+          onOpenChange(false);
+          form.reset();
+          setCalculatedValues(null);
+        },
+      }
+    );
   };
 
   const handleLoanTypeChange = (value: string) => {
     form.setValue("loanType", value as LoanFormData["loanType"]);
-    const loanType = loanTypes.find(lt => lt.value === value);
+    const loanType = loanTypes.find((lt) => lt.value === value);
+
     if (loanType) {
       if (value === "salary_advance") {
         form.setValue("interestRate", 0);
@@ -103,9 +131,7 @@ export function LoanModal({ open, onOpenChange }: LoanModalProps) {
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New Loan Application</DialogTitle>
-          <DialogDescription>
-            Create a new loan or salary advance for an employee
-          </DialogDescription>
+          <DialogDescription>Create a new loan or salary advance for an employee</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -124,9 +150,9 @@ export function LoanModal({ open, onOpenChange }: LoanModalProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {mockEmployees.filter(e => e.status === 'active').map((employee) => (
+                        {activeEmployees.map((employee) => (
                           <SelectItem key={employee.id} value={employee.id}>
-                            {employee.firstName} {employee.lastName} ({employee.employeeNumber})
+                            {employee.first_name} {employee.last_name} ({employee.employee_number || "N/A"})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -156,9 +182,7 @@ export function LoanModal({ open, onOpenChange }: LoanModalProps) {
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormDescription>
-                      Max tenure: {selectedLoanType?.maxTenure} months
-                    </FormDescription>
+                    <FormDescription>Max tenure: {selectedLoanType?.maxTenure} months</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -176,7 +200,7 @@ export function LoanModal({ open, onOpenChange }: LoanModalProps) {
                       <Input
                         type="number"
                         placeholder="100000"
-                        {...field}
+                        value={field.value}
                         onChange={(e) => {
                           field.onChange(Number(e.target.value));
                           setCalculatedValues(null);
@@ -200,7 +224,7 @@ export function LoanModal({ open, onOpenChange }: LoanModalProps) {
                         step="0.5"
                         placeholder="10"
                         disabled={watchedValues.loanType === "salary_advance"}
-                        {...field}
+                        value={field.value}
                         onChange={(e) => {
                           field.onChange(Number(e.target.value));
                           setCalculatedValues(null);
@@ -227,7 +251,7 @@ export function LoanModal({ open, onOpenChange }: LoanModalProps) {
                         min={1}
                         max={selectedLoanType?.maxTenure || 24}
                         placeholder="12"
-                        {...field}
+                        value={field.value}
                         onChange={(e) => {
                           field.onChange(Number(e.target.value));
                           setCalculatedValues(null);
@@ -254,15 +278,21 @@ export function LoanModal({ open, onOpenChange }: LoanModalProps) {
                   <div className="grid grid-cols-2 gap-4 mt-2">
                     <div>
                       <p className="text-sm text-muted-foreground">Monthly Deduction</p>
-                      <p className="text-lg font-semibold">LKR {calculatedValues.monthlyDeduction.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                      <p className="text-lg font-semibold">
+                        LKR {calculatedValues.monthlyDeduction.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Total Interest</p>
-                      <p className="text-lg font-semibold">LKR {calculatedValues.totalInterest.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                      <p className="text-lg font-semibold">
+                        LKR {calculatedValues.totalInterest.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Total Repayment</p>
-                      <p className="text-lg font-semibold">LKR {calculatedValues.totalRepayment.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                      <p className="text-lg font-semibold">
+                        LKR {calculatedValues.totalRepayment.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Expected End Date</p>
@@ -293,10 +323,13 @@ export function LoanModal({ open, onOpenChange }: LoanModalProps) {
             />
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isCreating}>
                 Cancel
               </Button>
-              <Button type="submit">Submit Application</Button>
+              <Button type="submit" disabled={isCreating || !calculatedValues}>
+                {isCreating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Submit Application
+              </Button>
             </DialogFooter>
           </form>
         </Form>

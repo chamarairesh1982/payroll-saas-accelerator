@@ -1,26 +1,46 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { SalaryComponent } from "@/types/payroll";
 import { componentCategories, calculationTypes } from "@/data/mockSalaryComponents";
-import { toast } from "sonner";
+import { useSalaryComponents, type SalaryComponentRow } from "@/hooks/useSalaryComponents";
 
 const componentSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters").max(50),
+  name: z.string().trim().min(2, "Name must be at least 2 characters").max(50),
   type: z.enum(["allowance", "deduction"]),
   category: z.enum(["fixed", "percentage", "variable"]),
-  calculationType: z.enum(["basic", "gross", "fixed"]),
+  calculation_type: z.enum(["basic", "gross", "fixed"]),
   value: z.number().min(0, "Value must be positive"),
-  isTaxable: z.boolean(),
-  isEpfApplicable: z.boolean(),
-  isActive: z.boolean(),
+  is_taxable: z.boolean(),
+  is_epf_applicable: z.boolean(),
+  is_active: z.boolean(),
 });
 
 type ComponentFormData = z.infer<typeof componentSchema>;
@@ -28,55 +48,88 @@ type ComponentFormData = z.infer<typeof componentSchema>;
 interface SalaryComponentModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  component?: SalaryComponent | null;
-  onSave?: (data: ComponentFormData) => void;
+  component?: SalaryComponentRow | null;
 }
 
-export function SalaryComponentModal({ open, onOpenChange, component, onSave }: SalaryComponentModalProps) {
+export function SalaryComponentModal({ open, onOpenChange, component }: SalaryComponentModalProps) {
   const isEditing = !!component;
+  const { createSalaryComponent, updateSalaryComponent, isCreating, isUpdating } = useSalaryComponents();
 
   const form = useForm<ComponentFormData>({
     resolver: zodResolver(componentSchema),
-    defaultValues: component ? {
-      name: component.name,
-      type: component.type,
-      category: component.category,
-      calculationType: component.calculationType,
-      value: component.value,
-      isTaxable: component.isTaxable,
-      isEpfApplicable: component.isEpfApplicable,
-      isActive: component.isActive,
-    } : {
+    defaultValues: {
       name: "",
       type: "allowance",
       category: "fixed",
-      calculationType: "fixed",
+      calculation_type: "fixed",
       value: 0,
-      isTaxable: true,
-      isEpfApplicable: false,
-      isActive: true,
+      is_taxable: true,
+      is_epf_applicable: false,
+      is_active: true,
     },
   });
+
+  useEffect(() => {
+    if (!open) return;
+
+    if (component) {
+      form.reset({
+        name: component.name,
+        type: component.type,
+        category: component.category,
+        calculation_type: component.calculation_type,
+        value: Number(component.value),
+        is_taxable: component.is_taxable,
+        is_epf_applicable: component.is_epf_applicable,
+        is_active: component.is_active,
+      });
+    } else {
+      form.reset({
+        name: "",
+        type: "allowance",
+        category: "fixed",
+        calculation_type: "fixed",
+        value: 0,
+        is_taxable: true,
+        is_epf_applicable: false,
+        is_active: true,
+      });
+    }
+  }, [open, component, form]);
 
   const watchedCategory = form.watch("category");
 
   const onSubmit = (data: ComponentFormData) => {
-    onSave?.(data);
-    toast.success(isEditing ? "Component Updated" : "Component Created", {
-      description: `${data.name} has been ${isEditing ? 'updated' : 'created'} successfully.`,
+    if (isEditing && component) {
+      updateSalaryComponent(
+        {
+          id: component.id,
+          updates: data,
+        },
+        {
+          onSuccess: () => {
+            onOpenChange(false);
+          },
+        }
+      );
+      return;
+    }
+
+    createSalaryComponent(data, {
+      onSuccess: () => {
+        onOpenChange(false);
+      },
     });
-    onOpenChange(false);
-    form.reset();
   };
+
+  const isPending = isCreating || isUpdating;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit" : "Add"} Salary Component</DialogTitle>
-          <DialogDescription>
-            Configure allowance or deduction settings
-          </DialogDescription>
+          <DialogDescription>Configure allowance or deduction settings</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -139,7 +192,7 @@ export function SalaryComponentModal({ open, onOpenChange, component, onSave }: 
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      {componentCategories.find(c => c.value === field.value)?.description}
+                      {componentCategories.find((c) => c.value === field.value)?.description}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -150,12 +203,12 @@ export function SalaryComponentModal({ open, onOpenChange, component, onSave }: 
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="calculationType"
+                name="calculation_type"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Calculation Base</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
+                    <Select
+                      onValueChange={field.onChange}
                       value={field.value}
                       disabled={watchedCategory === "fixed"}
                     >
@@ -191,7 +244,7 @@ export function SalaryComponentModal({ open, onOpenChange, component, onSave }: 
                         step={watchedCategory === "percentage" ? "0.5" : "100"}
                         min="0"
                         placeholder={watchedCategory === "percentage" ? "10" : "5000"}
-                        {...field}
+                        value={field.value}
                         onChange={(e) => field.onChange(Number(e.target.value))}
                       />
                     </FormControl>
@@ -206,17 +259,15 @@ export function SalaryComponentModal({ open, onOpenChange, component, onSave }: 
 
             <div className="space-y-4 rounded-lg border p-4">
               <h4 className="font-medium text-sm">Tax & Contribution Settings</h4>
-              
+
               <FormField
                 control={form.control}
-                name="isTaxable"
+                name="is_taxable"
                 render={({ field }) => (
                   <FormItem className="flex items-center justify-between">
                     <div>
                       <FormLabel className="text-sm">Taxable</FormLabel>
-                      <FormDescription className="text-xs">
-                        Include in PAYE tax calculation
-                      </FormDescription>
+                      <FormDescription className="text-xs">Include in PAYE tax calculation</FormDescription>
                     </div>
                     <FormControl>
                       <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -227,14 +278,12 @@ export function SalaryComponentModal({ open, onOpenChange, component, onSave }: 
 
               <FormField
                 control={form.control}
-                name="isEpfApplicable"
+                name="is_epf_applicable"
                 render={({ field }) => (
                   <FormItem className="flex items-center justify-between">
                     <div>
                       <FormLabel className="text-sm">EPF Applicable</FormLabel>
-                      <FormDescription className="text-xs">
-                        Include in EPF contribution calculation
-                      </FormDescription>
+                      <FormDescription className="text-xs">Include in EPF contribution calculation</FormDescription>
                     </div>
                     <FormControl>
                       <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -245,14 +294,12 @@ export function SalaryComponentModal({ open, onOpenChange, component, onSave }: 
 
               <FormField
                 control={form.control}
-                name="isActive"
+                name="is_active"
                 render={({ field }) => (
                   <FormItem className="flex items-center justify-between">
                     <div>
                       <FormLabel className="text-sm">Active</FormLabel>
-                      <FormDescription className="text-xs">
-                        Component is currently in use
-                      </FormDescription>
+                      <FormDescription className="text-xs">Component is currently in use</FormDescription>
                     </div>
                     <FormControl>
                       <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -263,10 +310,12 @@ export function SalaryComponentModal({ open, onOpenChange, component, onSave }: 
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
                 Cancel
               </Button>
-              <Button type="submit">{isEditing ? "Save Changes" : "Create Component"}</Button>
+              <Button type="submit" disabled={isPending}>
+                {isEditing ? "Save Changes" : "Create Component"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>
