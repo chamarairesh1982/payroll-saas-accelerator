@@ -2,11 +2,13 @@ import {
   Employee, 
   PaySlip, 
   PaySlipItem,
+  Loan,
   EPF_EMPLOYEE_RATE, 
   EPF_EMPLOYER_RATE, 
   ETF_EMPLOYER_RATE,
   DEFAULT_PAYE_SLABS 
 } from "@/types/payroll";
+import { mockLoans } from "@/data/mockLoans";
 
 // Calculate PAYE tax based on Sri Lanka tax slabs
 export function calculatePAYE(monthlyTaxableIncome: number): number {
@@ -46,6 +48,25 @@ export function calculateEPFEmployer(grossSalary: number): number {
 // Calculate ETF contribution (employer only)
 export function calculateETF(grossSalary: number): number {
   return Math.round(grossSalary * ETF_EMPLOYER_RATE);
+}
+
+// Get active loan deductions for an employee
+export function getEmployeeLoanDeductions(employeeId: string): PaySlipItem[] {
+  const activeLoans = mockLoans.filter(
+    loan => loan.employeeId === employeeId && loan.status === 'active'
+  );
+  
+  return activeLoans.map(loan => ({
+    name: `Loan Recovery - ${loan.loanType === 'salary_advance' ? 'Salary Advance' : loan.loanType === 'personal_loan' ? 'Personal Loan' : 'Emergency Loan'}`,
+    amount: loan.monthlyDeduction,
+    type: 'deduction' as const,
+  }));
+}
+
+// Get total loan deductions for an employee
+export function getTotalLoanDeductions(employeeId: string): number {
+  const loanDeductions = getEmployeeLoanDeductions(employeeId);
+  return loanDeductions.reduce((sum, d) => sum + d.amount, 0);
 }
 
 // Standard allowances (can be configured per company)
@@ -91,10 +112,14 @@ export function generatePayslip(
   const taxableIncome = grossSalary - epfEmployee;
   const payeTax = calculatePAYE(taxableIncome);
   
+  // Get loan deductions for this employee
+  const loanDeductions = getEmployeeLoanDeductions(employee.id);
+  
   // Combine all deductions
   const allDeductions: PaySlipItem[] = [
     { name: "EPF (Employee 8%)", amount: epfEmployee, type: "deduction" },
     { name: "PAYE Tax", amount: payeTax, type: "deduction" },
+    ...loanDeductions,
     ...additionalDeductions,
   ];
   
