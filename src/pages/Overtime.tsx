@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import { useOvertimeEntries, useOvertimeRates, formatDayType, OvertimeEntry } from "@/hooks/useOvertime";
 import { OvertimeEntryModal } from "@/components/overtime/OvertimeEntryModal";
 import { OvertimeApprovalModal } from "@/components/overtime/OvertimeApprovalModal";
@@ -81,7 +82,18 @@ const Overtime = () => {
             <Settings2 className="h-5 w-5" />
             Configure Rates
           </Button>
-          <Button size="lg" onClick={() => setShowEntryModal(true)}>
+          <Button
+            size="lg"
+            onClick={() => {
+              const activeRates = overtimeRates.filter((r) => r.is_active);
+              if (activeRates.length === 0) {
+                toast.error("Configure overtime rates first");
+                setShowRatesModal(true);
+                return;
+              }
+              setShowEntryModal(true);
+            }}
+          >
             <Plus className="h-5 w-5" />
             Add Overtime
           </Button>
