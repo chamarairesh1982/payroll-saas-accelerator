@@ -11,7 +11,6 @@ import {
   FileCheck,
   AlertCircle,
   CheckCircle2,
-  DollarSign,
   Download,
   Eye,
   Loader2,
@@ -30,12 +29,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { mockEmployees } from "@/data/mockEmployees";
-import { PaySlip } from "@/types/payroll";
+import { useEmployees, Employee } from "@/hooks/useEmployees";
+import { useAttendanceSummary } from "@/hooks/useAttendance";
+import { useCreatePayrollRun } from "@/hooks/usePayroll";
+import { PaySlip, PaySlipItem } from "@/types/payroll";
 import {
-  generatePayslip,
-  calculatePayrollTotals,
+  calculatePAYE,
+  calculateEPFEmployee,
+  calculateEPFEmployer,
+  calculateETF,
   formatLKR,
+  defaultAllowances,
 } from "@/lib/payroll-calculations";
 import { cn } from "@/lib/utils";
 import { PayslipModal } from "./PayslipModal";
@@ -51,10 +55,96 @@ const steps = [
   { id: 4, title: "Confirm & Process", icon: FileCheck },
 ];
 
+// Generate payslip from employee with attendance data
+function generatePayslipFromEmployee(
+  employee: Employee,
+  attendanceSummary: { workedDays: number; workedHours: number } | undefined,
+  payPeriod: { start: Date; end: Date },
+  workingDays: number = 22
+): PaySlip {
+  const basicSalary = employee.basic_salary || 0;
+  const workedDays = attendanceSummary?.workedDays ?? workingDays;
+  
+  // Calculate daily rate and adjust for worked days
+  const dailyRate = basicSalary / workingDays;
+  const adjustedBasic = Math.round(dailyRate * workedDays);
+  
+  // Combine allowances
+  const allAllowances: PaySlipItem[] = [...defaultAllowances];
+  
+  // Calculate gross salary
+  const totalAllowances = allAllowances.reduce((sum, a) => sum + a.amount, 0);
+  const grossSalary = adjustedBasic + totalAllowances;
+  
+  // Calculate statutory deductions
+  const epfEmployee = calculateEPFEmployee(adjustedBasic);
+  const epfEmployer = calculateEPFEmployer(adjustedBasic);
+  const etfEmployer = calculateETF(adjustedBasic);
+  
+  // Calculate taxable income
+  const taxableIncome = grossSalary - epfEmployee;
+  const payeTax = calculatePAYE(taxableIncome);
+  
+  // Combine all deductions
+  const allDeductions: PaySlipItem[] = [
+    { name: "EPF (Employee 8%)", amount: epfEmployee, type: "deduction" },
+    { name: "PAYE Tax", amount: payeTax, type: "deduction" },
+  ];
+  
+  const totalDeductions = allDeductions.reduce((sum, d) => sum + d.amount, 0);
+  const netSalary = grossSalary - totalDeductions;
+  
+  return {
+    id: `PS-${Date.now()}-${employee.id}`,
+    payrollRunId: "",
+    employeeId: employee.id,
+    employee: {
+      id: employee.id,
+      epfNumber: employee.epf_number || "",
+      firstName: employee.first_name || "",
+      lastName: employee.last_name || "",
+      email: employee.email || "",
+      phone: employee.phone || "",
+      nic: employee.nic || "",
+      dateOfBirth: employee.date_of_birth ? new Date(employee.date_of_birth) : new Date(),
+      dateOfJoining: employee.date_of_joining ? new Date(employee.date_of_joining) : new Date(),
+      department: employee.department || "",
+      designation: employee.designation || "",
+      employmentType: (employee.employment_type || "permanent") as any,
+      status: (employee.status || "active") as any,
+      basicSalary: basicSalary,
+      bankName: employee.bank_name || "",
+      bankBranch: employee.bank_branch || "",
+      bankAccountNumber: employee.bank_account_number || "",
+      companyId: employee.company_id || "",
+      employeeNumber: employee.employee_number || "",
+      createdAt: new Date(employee.created_at),
+      updatedAt: new Date(employee.updated_at),
+    },
+    basicSalary: adjustedBasic,
+    allowances: allAllowances,
+    deductions: allDeductions,
+    grossSalary,
+    taxableIncome,
+    epfEmployee,
+    epfEmployer,
+    etfEmployer,
+    payeTax,
+    netSalary,
+    workingDays,
+    workedDays,
+    otHours: 0,
+    otAmount: 0,
+    createdAt: new Date(),
+  };
+}
+
 export function PayrollWizard({ onClose }: PayrollWizardProps) {
   const { toast } = useToast();
+  const { employees, isLoading: employeesLoading } = useEmployees();
+  const createPayrollRun = useCreatePayrollRun();
+  
   const [currentStep, setCurrentStep] = useState(1);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [selectedPayslip, setSelectedPayslip] = useState<PaySlip | null>(null);
 
@@ -67,25 +157,53 @@ export function PayrollWizard({ onClose }: PayrollWizardProps) {
       .split("T")[0],
   });
 
+  // Get active employees
+  const activeEmployees = useMemo(() => 
+    employees.filter((e) => e.status === "active"),
+    [employees]
+  );
+
   // Step 2: Employee Selection
-  const [selectedEmployees, setSelectedEmployees] = useState<string[]>(
-    mockEmployees.filter((e) => e.status === "active").map((e) => e.id)
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
+
+  // Initialize selected employees when data loads
+  useMemo(() => {
+    if (activeEmployees.length > 0 && selectedEmployees.length === 0) {
+      setSelectedEmployees(activeEmployees.map((e) => e.id));
+    }
+  }, [activeEmployees]);
+
+  // Fetch attendance summary for selected employees
+  const { data: attendanceSummary = {} } = useAttendanceSummary(
+    selectedEmployees,
+    payPeriod.month,
+    payPeriod.year
   );
 
   // Step 3: Generated Payslips
   const payslips = useMemo(() => {
-    const selected = mockEmployees.filter((e) =>
-      selectedEmployees.includes(e.id)
-    );
+    const selected = activeEmployees.filter((e) => selectedEmployees.includes(e.id));
     return selected.map((employee) =>
-      generatePayslip(employee, {
-        start: new Date(payPeriod.year, payPeriod.month - 1, 1),
-        end: new Date(payPeriod.year, payPeriod.month, 0),
-      })
+      generatePayslipFromEmployee(
+        employee,
+        attendanceSummary[employee.id],
+        {
+          start: new Date(payPeriod.year, payPeriod.month - 1, 1),
+          end: new Date(payPeriod.year, payPeriod.month, 0),
+        }
+      )
     );
-  }, [selectedEmployees, payPeriod]);
+  }, [selectedEmployees, payPeriod, activeEmployees, attendanceSummary]);
 
-  const totals = useMemo(() => calculatePayrollTotals(payslips), [payslips]);
+  const totals = useMemo(() => ({
+    totalGrossSalary: payslips.reduce((sum, p) => sum + p.grossSalary, 0),
+    totalNetSalary: payslips.reduce((sum, p) => sum + p.netSalary, 0),
+    totalEpfEmployee: payslips.reduce((sum, p) => sum + p.epfEmployee, 0),
+    totalEpfEmployer: payslips.reduce((sum, p) => sum + p.epfEmployer, 0),
+    totalEtf: payslips.reduce((sum, p) => sum + p.etfEmployer, 0),
+    totalPaye: payslips.reduce((sum, p) => sum + p.payeTax, 0),
+    employeeCount: payslips.length,
+  }), [payslips]);
 
   const months = [
     "January", "February", "March", "April", "May", "June",
@@ -105,14 +223,38 @@ export function PayrollWizard({ onClose }: PayrollWizardProps) {
   };
 
   const handleProcess = async () => {
-    setIsProcessing(true);
-    // Simulate processing
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIsProcessing(false);
-    setIsComplete(true);
-    toast({
-      title: "Payroll Processed Successfully",
-      description: `${payslips.length} payslips generated for ${months[payPeriod.month - 1]} ${payPeriod.year}.`,
+    const payPeriodStart = new Date(payPeriod.year, payPeriod.month - 1, 1).toISOString().split("T")[0];
+    const payPeriodEnd = new Date(payPeriod.year, payPeriod.month, 0).toISOString().split("T")[0];
+    
+    createPayrollRun.mutate({
+      payPeriodStart,
+      payPeriodEnd,
+      payDate: payPeriod.payDate,
+      payslips: payslips.map((p) => ({
+        employeeId: p.employeeId,
+        basicSalary: p.basicSalary,
+        grossSalary: p.grossSalary,
+        netSalary: p.netSalary,
+        epfEmployee: p.epfEmployee,
+        epfEmployer: p.epfEmployer,
+        etfEmployer: p.etfEmployer,
+        payeTax: p.payeTax,
+        taxableIncome: p.taxableIncome,
+        allowances: p.allowances,
+        deductions: p.deductions,
+        workedDays: p.workedDays,
+        workingDays: p.workingDays,
+        otHours: p.otHours,
+        otAmount: p.otAmount,
+      })),
+    }, {
+      onSuccess: () => {
+        setIsComplete(true);
+        toast({
+          title: "Payroll Processed Successfully",
+          description: `${payslips.length} payslips generated for ${months[payPeriod.month - 1]} ${payPeriod.year}.`,
+        });
+      },
     });
   };
 
@@ -125,10 +267,7 @@ export function PayrollWizard({ onClose }: PayrollWizardProps) {
   };
 
   const selectAll = () => {
-    const activeEmployees = mockEmployees
-      .filter((e) => e.status === "active")
-      .map((e) => e.id);
-    setSelectedEmployees(activeEmployees);
+    setSelectedEmployees(activeEmployees.map((e) => e.id));
   };
 
   const deselectAll = () => {
@@ -338,7 +477,7 @@ export function PayrollWizard({ onClose }: PayrollWizardProps) {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {mockEmployees.map((employee) => (
+                      {activeEmployees.map((employee) => (
                         <TableRow
                           key={employee.id}
                           className={cn(
@@ -356,21 +495,21 @@ export function PayrollWizard({ onClose }: PayrollWizardProps) {
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                                {employee.firstName[0]}
-                                {employee.lastName[0]}
+                                {employee.first_name?.[0]}
+                                {employee.last_name?.[0]}
                               </div>
                               <div>
                                 <p className="font-medium">
-                                  {employee.firstName} {employee.lastName}
+                                  {employee.first_name} {employee.last_name}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  {employee.epfNumber}
+                                  {employee.epf_number}
                                 </p>
                               </div>
                             </div>
                           </TableCell>
                           <TableCell>{employee.department}</TableCell>
-                          <TableCell>{formatLKR(employee.basicSalary)}</TableCell>
+                          <TableCell>{formatLKR(employee.basic_salary || 0)}</TableCell>
                           <TableCell>
                             <Badge
                               variant="outline"
@@ -394,7 +533,7 @@ export function PayrollWizard({ onClose }: PayrollWizardProps) {
                     Selected employees
                   </span>
                   <span className="font-semibold">
-                    {selectedEmployees.length} of {mockEmployees.length}
+                    {selectedEmployees.length} of {activeEmployees.length}
                   </span>
                 </div>
               </motion.div>
@@ -663,8 +802,8 @@ export function PayrollWizard({ onClose }: PayrollWizardProps) {
                 <ArrowRight className="h-4 w-4" />
               </Button>
             ) : (
-              <Button onClick={handleProcess} disabled={isProcessing}>
-                {isProcessing ? (
+              <Button onClick={handleProcess} disabled={createPayrollRun.isPending}>
+                {createPayrollRun.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Processing...

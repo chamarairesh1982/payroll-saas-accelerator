@@ -33,9 +33,10 @@ interface NavItem {
 const mainNavItems: NavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/" },
   { label: "Employees", icon: Users, href: "/employees" },
+  { label: "Time & Attendance", icon: Clock, href: "/attendance" },
   { label: "Payroll", icon: DollarSign, href: "/payroll" },
   { label: "Leave", icon: Calendar, href: "/leave" },
-  { label: "Overtime", icon: Clock, href: "/overtime" },
+  { label: "Overtime", icon: TrendingUp, href: "/overtime" },
   { label: "Loans", icon: CreditCard, href: "/loans" },
 ];
 

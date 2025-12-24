@@ -11,6 +11,7 @@ import Employees from "./pages/Employees";
 import EmployeeProfile from "./pages/EmployeeProfile";
 import EmployeeForm from "./pages/EmployeeForm";
 import Payroll from "./pages/Payroll";
+import Attendance from "./pages/Attendance";
 import Leave from "./pages/Leave";
 import Overtime from "./pages/Overtime";
 import Loans from "./pages/Loans";
@@ -56,6 +57,7 @@ function AppRoutes() {
       <Route path="/employees/:id" element={<ProtectedRoute><EmployeeProfile /></ProtectedRoute>} />
       <Route path="/employees/:id/edit" element={<ProtectedRoute><EmployeeForm /></ProtectedRoute>} />
       <Route path="/payroll" element={<ProtectedRoute><Payroll /></ProtectedRoute>} />
+      <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
       <Route path="/leave" element={<ProtectedRoute><Leave /></ProtectedRoute>} />
       <Route path="/overtime" element={<ProtectedRoute><Overtime /></ProtectedRoute>} />
       <Route path="/loans" element={<ProtectedRoute><Loans /></ProtectedRoute>} />
