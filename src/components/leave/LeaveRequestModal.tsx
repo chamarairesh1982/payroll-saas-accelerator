@@ -7,6 +7,7 @@ import { X, Calendar, Send, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -62,6 +63,8 @@ export function LeaveRequestModal({ onClose }: LeaveRequestModalProps) {
 
   const watchStartDate = form.watch("startDate");
   const watchEndDate = form.watch("endDate");
+
+  const noLeaveTypes = !isLoadingTypes && leaveTypes.length === 0;
 
   const calculatedDays =
     watchStartDate && watchEndDate
@@ -119,6 +122,15 @@ export function LeaveRequestModal({ onClose }: LeaveRequestModalProps) {
             className="flex min-h-0 flex-1 flex-col"
           >
             <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+              {noLeaveTypes && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    No leave types are configured yet. Add a leave type first, then submit requests.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {/* Leave Type */}
               <FormField
                 control={form.control}
@@ -129,7 +141,7 @@ export function LeaveRequestModal({ onClose }: LeaveRequestModalProps) {
                     <Select
                       onValueChange={field.onChange}
                       value={field.value}
-                      disabled={isLoadingTypes}
+                      disabled={isLoadingTypes || noLeaveTypes}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -218,7 +230,7 @@ export function LeaveRequestModal({ onClose }: LeaveRequestModalProps) {
                 <Button type="button" variant="outline" onClick={onClose} disabled={isCreating}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isCreating || calculatedDays <= 0}>
+                <Button type="submit" disabled={isCreating || calculatedDays <= 0 || noLeaveTypes}>
                   {isCreating ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (

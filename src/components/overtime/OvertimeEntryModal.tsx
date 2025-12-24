@@ -98,6 +98,7 @@ export function OvertimeEntryModal({ open, onOpenChange }: OvertimeEntryModalPro
 
   const activeEmployees = employees.filter(e => e.status === 'active');
   const activeRates = overtimeRates.filter(r => r.is_active);
+  const noRates = !isLoadingRates && activeRates.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -111,6 +112,13 @@ export function OvertimeEntryModal({ open, onOpenChange }: OvertimeEntryModalPro
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {noRates && (
+              <Alert>
+                <AlertDescription>
+                  No overtime rates are configured yet. Configure rates first, then add overtime entries.
+                </AlertDescription>
+              </Alert>
+            )}
             <FormField
               control={form.control}
               name="employeeId"
@@ -210,7 +218,7 @@ export function OvertimeEntryModal({ open, onOpenChange }: OvertimeEntryModalPro
                     <Select 
                       onValueChange={(value) => { field.onChange(value); setCalculatedAmount(null); }} 
                       value={field.value}
-                      disabled={isLoadingRates}
+                      disabled={isLoadingRates || noRates}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -251,7 +259,7 @@ export function OvertimeEntryModal({ open, onOpenChange }: OvertimeEntryModalPro
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isCreating}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isCreating}>
+              <Button type="submit" disabled={isCreating || noRates}>
                 {isCreating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Submit Entry
               </Button>
