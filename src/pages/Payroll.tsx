@@ -34,9 +34,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { PayrollWizard } from "@/components/payroll/PayrollWizard";
+import { PayrollDetailModal } from "@/components/payroll/PayrollDetailModal";
 import { cn } from "@/lib/utils";
 import { formatLKR } from "@/lib/payroll-calculations";
-import { usePayrollRuns } from "@/hooks/usePayroll";
+import { usePayrollRuns, PayrollRun } from "@/hooks/usePayroll";
 import { format } from "date-fns";
 
 const statusConfig = {
@@ -49,6 +50,7 @@ const statusConfig = {
 
 const Payroll = () => {
   const [showWizard, setShowWizard] = useState(false);
+  const [selectedRun, setSelectedRun] = useState<PayrollRun | null>(null);
   const { data: payrollRuns = [], isLoading } = usePayrollRuns();
 
   const stats = useMemo(() => {
@@ -84,6 +86,12 @@ const Payroll = () => {
       <AnimatePresence>
         {showWizard && (
           <PayrollWizard onClose={() => setShowWizard(false)} />
+        )}
+        {selectedRun && (
+          <PayrollDetailModal
+            payrollRun={selectedRun}
+            onClose={() => setSelectedRun(null)}
+          />
         )}
       </AnimatePresence>
 
@@ -233,15 +241,15 @@ const Payroll = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setSelectedRun(run)}>
                             <Eye className="mr-2 h-4 w-4" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setSelectedRun(run)}>
                             <Download className="mr-2 h-4 w-4" />
                             Download Payslips
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setSelectedRun(run)}>
                             <FileText className="mr-2 h-4 w-4" />
                             Generate Reports
                           </DropdownMenuItem>
