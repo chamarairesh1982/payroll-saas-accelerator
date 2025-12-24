@@ -13,6 +13,7 @@ import {
   Building,
   Users,
   Loader2,
+  Send,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useEmployees, departments } from "@/hooks/useEmployees";
+import { useAuth } from "@/contexts/AuthContext";
+import { InviteEmployeeModal } from "@/components/employees/InviteEmployeeModal";
 import { cn } from "@/lib/utils";
 
 const statusStyles: Record<string, string> = {
@@ -68,10 +71,14 @@ const employmentTypeLabels: Record<string, string> = {
 
 const Employees = () => {
   const { employees, isLoading, deleteEmployee, isDeleting } = useEmployees();
+  const { isAdmin, isHR } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+
+  const canInvite = isAdmin || isHR;
 
   const filteredEmployees = useMemo(() => {
     return employees.filter((employee) => {
@@ -129,12 +136,20 @@ const Employees = () => {
             Manage your organization's workforce and employee records.
           </p>
         </div>
-        <Link to="/employees/new">
-          <Button size="lg">
-            <Plus className="h-5 w-5" />
-            Add Employee
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          {canInvite && (
+            <Button variant="outline" onClick={() => setShowInviteModal(true)}>
+              <Send className="h-4 w-4" />
+              Invite Employee
+            </Button>
+          )}
+          <Link to="/employees/new">
+            <Button size="lg">
+              <Plus className="h-5 w-5" />
+              Add Employee
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Quick Stats */}
@@ -387,6 +402,11 @@ const Employees = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* Invite Employee Modal */}
+      <InviteEmployeeModal
+        open={showInviteModal}
+        onOpenChange={setShowInviteModal}
+      />
     </MainLayout>
   );
 };

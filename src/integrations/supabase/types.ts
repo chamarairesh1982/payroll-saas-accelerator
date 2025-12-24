@@ -118,6 +118,71 @@ export type Database = {
           },
         ]
       }
+      employee_invitations: {
+        Row: {
+          accepted_at: string | null
+          basic_salary: number | null
+          company_id: string
+          created_at: string
+          department: string | null
+          designation: string | null
+          email: string
+          employment_type: string | null
+          expires_at: string
+          first_name: string
+          id: string
+          invited_by: string
+          last_name: string
+          status: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          basic_salary?: number | null
+          company_id: string
+          created_at?: string
+          department?: string | null
+          designation?: string | null
+          email: string
+          employment_type?: string | null
+          expires_at: string
+          first_name: string
+          id?: string
+          invited_by: string
+          last_name: string
+          status?: string
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          basic_salary?: number | null
+          company_id?: string
+          created_at?: string
+          department?: string | null
+          designation?: string | null
+          email?: string
+          employment_type?: string | null
+          expires_at?: string
+          first_name?: string
+          id?: string
+          invited_by?: string
+          last_name?: string
+          status?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_invitations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leave_requests: {
         Row: {
           approved_at: string | null
