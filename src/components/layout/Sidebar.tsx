@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface NavItem {
   label: string;
@@ -52,7 +53,22 @@ const adminNavItems: NavItem[] = [
 
 export function Sidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { profile, userRole, signOut } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/auth");
+  };
+
+  const userName = profile?.first_name && profile?.last_name 
+    ? `${profile.first_name} ${profile.last_name}`
+    : profile?.email || "User";
+  
+  const userInitials = profile?.first_name && profile?.last_name
+    ? `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase()
+    : "U";
 
   const isActive = (href: string) => {
     if (href === "/") return location.pathname === "/";
@@ -159,7 +175,7 @@ export function Sidebar() {
       <div className="border-t border-sidebar-border p-4">
         <div className={cn("flex items-center gap-3", isCollapsed && "justify-center")}>
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sidebar-accent">
-            <span className="text-sm font-semibold text-sidebar-foreground">AD</span>
+            <span className="text-sm font-semibold text-sidebar-foreground">{userInitials}</span>
           </div>
           <AnimatePresence>
             {!isCollapsed && (
@@ -169,8 +185,8 @@ export function Sidebar() {
                 exit={{ opacity: 0 }}
                 className="flex-1 truncate"
               >
-                <p className="text-sm font-medium text-sidebar-foreground">Admin User</p>
-                <p className="text-xs text-sidebar-foreground/50">admin@company.lk</p>
+                <p className="text-sm font-medium text-sidebar-foreground">{userName}</p>
+                <p className="text-xs text-sidebar-foreground/50 capitalize">{userRole?.role || "No Role"}</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -180,6 +196,7 @@ export function Sidebar() {
                 <Button
                   variant="ghost"
                   size="icon-sm"
+                  onClick={handleSignOut}
                   className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                 >
                   <LogOut className="h-4 w-4" />
