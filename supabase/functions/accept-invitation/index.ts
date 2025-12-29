@@ -25,6 +25,41 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { token, password }: AcceptInvitationRequest = await req.json();
 
+    // Server-side password validation
+    if (!password || typeof password !== "string") {
+      console.error("Password is required");
+      return new Response(
+        JSON.stringify({ error: "Password is required" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    if (password.length < 8) {
+      console.error("Password too short");
+      return new Response(
+        JSON.stringify({ error: "Password must be at least 8 characters" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    // Require at least one uppercase, one lowercase, and one number
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(password)) {
+      console.error("Password does not meet complexity requirements");
+      return new Response(
+        JSON.stringify({ error: "Password must contain at least one uppercase letter, one lowercase letter, and one number" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
     console.log("Looking up invitation with token");
 
     // Find the invitation
