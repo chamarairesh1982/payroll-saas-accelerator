@@ -82,8 +82,14 @@ const AcceptInvitation = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (password.length < 6) {
-      toast.error("Password must be at least 6 characters");
+    if (password.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+
+    // Validate password complexity: uppercase, lowercase, and number
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(password)) {
+      toast.error("Password must contain at least one uppercase letter, one lowercase letter, and one number");
       return;
     }
 
