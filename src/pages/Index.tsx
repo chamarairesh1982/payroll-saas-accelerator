@@ -1,4 +1,5 @@
-import { Users, DollarSign, Building2, Clock, TrendingUp, TrendingDown } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Users, DollarSign, Building2, Clock } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { PayrollChart } from "@/components/dashboard/PayrollChart";
@@ -6,6 +7,7 @@ import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { UpcomingPayments } from "@/components/dashboard/UpcomingPayments";
 import { SetupChecklist } from "@/components/dashboard/SetupChecklist";
+import { CompanyOnboarding } from "@/components/onboarding/CompanyOnboarding";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,8 +23,16 @@ const formatCurrency = (value: number) => {
 };
 
 const Dashboard = () => {
-  const { profile } = useAuth();
+  const { profile, user, loading: authLoading } = useAuth();
   const { data: stats, isLoading } = useDashboardStats();
+  const [showOnboarding, setShowOnboarding] = useState(true);
+
+  const handleOnboardingComplete = useCallback(() => {
+    setShowOnboarding(false);
+  }, []);
+
+  // Check if user needs to set up their company
+  const needsCompanySetup = user && !authLoading && !profile?.company_id;
 
   // Calculate growth percentage
   const payrollGrowth =
@@ -31,6 +41,15 @@ const Dashboard = () => {
       : 0;
 
   const showSetupChecklist = stats && stats.setupProgress.completedSteps < stats.setupProgress.totalSteps;
+
+  // Show company onboarding if user needs to set up company
+  if (needsCompanySetup && showOnboarding) {
+    return (
+      <MainLayout>
+        <CompanyOnboarding onComplete={handleOnboardingComplete} />
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
