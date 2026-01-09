@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 
 export type Employee = Tables<"profiles">;
 export type EmployeeInsert = TablesInsert<"profiles">;
@@ -47,6 +48,7 @@ export const banks = [
   "Seylan Bank",
   "DFCC Bank",
   "Nations Trust Bank",
+  "Pan Asia Bank",
   "Pan Asia Bank",
 ];
 
@@ -97,17 +99,32 @@ export const useEmployees = () => {
     }) => {
       if (!companyId) throw new Error("No company selected");
 
-      // Create user server-side to avoid switching the current session
-      const { data: result, error } = await supabase.functions.invoke(
-        "create-employee",
-        {
-          body: data,
+      const { data: result, error } = await supabase.functions.invoke("create-employee", {
+        body: data,
+      });
+
+      if (error) {
+        // Make edge function errors readable (401/403/400 validation, etc.)
+        if (error instanceof FunctionsHttpError) {
+          let message = `Request failed (${error.context?.status ?? "non-2xx"})`;
+          try {
+            const json = await error.context.json();
+            message = json?.error || json?.message || message;
+          } catch {
+            try {
+              const text = await error.context.text();
+              if (text) message = text;
+            } catch {
+              // ignore
+            }
+          }
+          throw new Error(message);
         }
-      );
 
-      if (error) throw error;
+        throw error;
+      }
+
       if (result?.error) throw new Error(result.error);
-
       return result;
     },
     onSuccess: () => {
@@ -127,10 +144,7 @@ export const useEmployees = () => {
       id: string;
       updates: Partial<EmployeeUpdate>;
     }) => {
-      const { error } = await supabase
-        .from("profiles")
-        .update(updates)
-        .eq("id", id);
+      const { error } = await supabase.from("profiles").update(updates).eq("id", id);
 
       if (error) throw error;
     },
@@ -193,11 +207,7 @@ export const useEmployee = (id: string | undefined) => {
     queryFn: async () => {
       if (!id) return null;
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
 
       if (error) throw error;
       return data;

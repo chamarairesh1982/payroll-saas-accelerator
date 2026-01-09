@@ -25,11 +25,19 @@ import {
 } from "@/components/ui/form";
 import { useEmployees, useEmployee, departments, designations, banks } from "@/hooks/useEmployees";
 
+const passwordSchema = z.preprocess(
+  (val) => {
+    if (typeof val === "string" && val.trim() === "") return undefined;
+    return val;
+  },
+  z.string().min(8, "Password must be at least 8 characters").max(72).optional()
+);
+
 const employeeSchema = z.object({
   first_name: z.string().min(2, "First name must be at least 2 characters").max(50),
   last_name: z.string().min(2, "Last name must be at least 2 characters").max(50),
   email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters").optional(),
+  password: passwordSchema,
   phone: z.string().min(10, "Phone number must be at least 10 characters"),
   nic: z.string().min(10, "NIC must be at least 10 characters").max(12),
   date_of_birth: z.string().min(1, "Date of birth is required"),
