@@ -958,6 +958,7 @@ export type Database = {
     }
     Functions: {
       get_user_company_id: { Args: { p_user_id: string }; Returns: string }
+      get_user_company_id_safe: { Args: { p_user_id: string }; Returns: string }
       get_user_role: {
         Args: { p_company_id: string; p_user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -969,6 +970,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_super_admin: { Args: { p_user_id: string }; Returns: boolean }
       user_has_company: { Args: { p_user_id: string }; Returns: boolean }
     }
     Enums: {
