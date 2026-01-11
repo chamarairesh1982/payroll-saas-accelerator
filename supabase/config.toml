@@ -7,7 +7,7 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.create-employee]
-verify_jwt = true
+verify_jwt = false
 
 [functions.seed-test-employees]
 verify_jwt = true
