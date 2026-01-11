@@ -57,31 +57,38 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized - no auth header" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - missing bearer token" }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Use anon key + user token to validate the user
+    // validate JWT manually (verify_jwt=false in config) using signing keys
+    const token = authHeader.replace("Bearer ", "");
+
     const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: { Authorization: authHeader },
       },
     });
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseAuth.auth.getUser();
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(
+      token
+    );
 
-    if (authError || !user) {
-      console.error("Auth error:", authError);
+    const userId = claimsData?.claims?.sub ?? null;
+    const jwtRole = (claimsData?.claims as any)?.role ?? null;
+
+    if (claimsError || !userId || jwtRole !== "authenticated") {
+      console.error("JWT claims error:", claimsError);
       return new Response(JSON.stringify({ error: "Invalid JWT" }), {
         status: 401,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -96,7 +103,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: companyId, error: companyError } = await supabase.rpc(
       "get_user_company_id",
       {
-        p_user_id: user.id,
+          p_user_id: userId,
       }
     );
 
@@ -110,7 +117,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: creatorRole, error: roleError } = await supabase.rpc(
       "get_user_role",
       {
-        p_user_id: user.id,
+        p_user_id: userId,
         p_company_id: companyId,
       }
     );
