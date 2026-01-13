@@ -34,6 +34,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isHR: boolean;
   isManager: boolean;
+  refreshUserData: (userId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -71,6 +72,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Error fetching user data:", error);
     }
+  };
+
+  const refreshUserData = async (userId: string) => {
+    await fetchUserData(userId);
   };
 
   useEffect(() => {
@@ -161,6 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin,
         isHR,
         isManager,
+        refreshUserData,
       }}
     >
       {children}
