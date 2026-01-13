@@ -71,29 +71,24 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // validate JWT manually (verify_jwt=false in config) using signing keys
-    const token = authHeader.replace("Bearer ", "");
-
+    // Validate user using getUser() with the token
     const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: { Authorization: authHeader },
       },
     });
 
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(
-      token
-    );
+    const { data: userData, error: userError } = await supabaseAuth.auth.getUser();
 
-    const userId = claimsData?.claims?.sub ?? null;
-    const jwtRole = (claimsData?.claims as any)?.role ?? null;
-
-    if (claimsError || !userId || jwtRole !== "authenticated") {
-      console.error("JWT claims error:", claimsError);
-      return new Response(JSON.stringify({ error: "Invalid JWT" }), {
+    if (userError || !userData?.user) {
+      console.error("Auth error:", userError);
+      return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
         status: 401,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
+
+    const userId = userData.user.id;
 
     // Use service role for admin operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
