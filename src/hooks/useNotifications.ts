@@ -48,19 +48,35 @@ export function useNotifications() {
         await Promise.all([
           safeCount(async () => {
             if (!canApprove) return 0;
+            // Get employee IDs from this company first
+            const { data: companyEmployees } = await supabase
+              .from("profiles")
+              .select("id")
+              .eq("company_id", companyId);
+            if (!companyEmployees?.length) return 0;
+            const employeeIds = companyEmployees.map((e) => e.id);
             const { count, error } = await supabase
               .from("leave_requests")
               .select("id", { count: "exact", head: true })
-              .eq("status", "pending");
+              .eq("status", "pending")
+              .in("employee_id", employeeIds);
             if (error) return 0;
             return count ?? 0;
           }),
           safeCount(async () => {
             if (!canApprove) return 0;
+            // Get employee IDs from this company first
+            const { data: companyEmployees } = await supabase
+              .from("profiles")
+              .select("id")
+              .eq("company_id", companyId);
+            if (!companyEmployees?.length) return 0;
+            const employeeIds = companyEmployees.map((e) => e.id);
             const { count, error } = await supabase
               .from("overtime_entries")
               .select("id", { count: "exact", head: true })
-              .eq("status", "pending");
+              .eq("status", "pending")
+              .in("employee_id", employeeIds);
             if (error) return 0;
             return count ?? 0;
           }),
@@ -104,7 +120,7 @@ export function useNotifications() {
           kind: "overtime_pending",
           count: overtimePending,
           title: "Overtime approvals",
-          description: `${overtimePending} entry${overtimePending === 1 ? "" : "ies"} pending`,
+          description: `${overtimePending} ${overtimePending === 1 ? "entry" : "entries"} pending`,
           href: "/overtime",
         });
       }

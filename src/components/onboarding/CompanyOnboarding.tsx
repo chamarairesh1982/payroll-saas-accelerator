@@ -15,7 +15,7 @@ interface CompanyOnboardingProps {
 }
 
 export const CompanyOnboarding = ({ onComplete }: CompanyOnboardingProps) => {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshUserData } = useAuth();
   const queryClient = useQueryClient();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -94,11 +94,12 @@ export const CompanyOnboarding = ({ onComplete }: CompanyOnboardingProps) => {
       toast.success("Company created successfully! You are now the admin.");
       setStep(2);
       
-      // Wait a moment then complete
-      setTimeout(() => {
+      // Refresh auth context instead of page reload
+      setTimeout(async () => {
+        if (user) {
+          await refreshUserData(user.id);
+        }
         onComplete();
-        // Force a page reload to refresh auth context
-        window.location.reload();
       }, 2000);
     } catch (error: any) {
       console.error("Error creating company:", error);
