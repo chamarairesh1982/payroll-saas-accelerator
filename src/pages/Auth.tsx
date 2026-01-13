@@ -7,9 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, AlertCircle, Shield, Zap, Users, BarChart3 } from "lucide-react";
+import { Loader2, AlertCircle, Shield, Zap, Users, BarChart3, CheckCircle2 } from "lucide-react";
 import { z } from "zod";
 import { motion } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -38,6 +40,8 @@ export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("login");
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
 
   // Form states
   const [email, setEmail] = useState("");
@@ -76,6 +80,36 @@ export default function Auth() {
       }
     } else {
       navigate("/");
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!email.trim()) {
+      setError("Please enter your email address");
+      return;
+    }
+
+    try {
+      z.string().email().parse(email);
+    } catch {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    setIsLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setIsLoading(false);
+
+    if (error) {
+      setError(error.message);
+    } else {
+      setResetEmailSent(true);
+      toast.success("Password reset email sent!");
     }
   };
 
@@ -201,66 +235,160 @@ export default function Auth() {
           </div>
 
           <Card className="border-border/50 shadow-lg">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <CardHeader className="pb-4 space-y-4">
-                <div className="text-center">
-                  <h2 className="text-2xl font-display font-bold">
-                    {activeTab === "login" ? "Welcome back" : "Get started"}
-                  </h2>
-                  <p className="text-muted-foreground text-sm mt-1">
-                    {activeTab === "login" 
-                      ? "Sign in to your account to continue" 
-                      : "Create your account to get started"}
-                  </p>
-                </div>
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="login">Sign In</TabsTrigger>
-                  <TabsTrigger value="signup">Sign Up</TabsTrigger>
-                </TabsList>
-              </CardHeader>
+            {showForgotPassword ? (
+              // Forgot Password Form
+              <>
+                <CardHeader className="pb-4 space-y-4">
+                  <div className="text-center">
+                    <h2 className="text-2xl font-display font-bold">
+                      {resetEmailSent ? "Check your email" : "Reset password"}
+                    </h2>
+                    <p className="text-muted-foreground text-sm mt-1">
+                      {resetEmailSent 
+                        ? "We've sent you a password reset link" 
+                        : "Enter your email to receive a reset link"}
+                    </p>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {error && (
+                    <Alert variant="destructive" className="mb-4">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
 
-              <CardContent>
-                {error && (
-                  <Alert variant="destructive" className="mb-4">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
+                  {resetEmailSent ? (
+                    <div className="text-center py-4">
+                      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                        <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        If an account exists for <strong>{email}</strong>, you will receive a password reset email shortly.
+                      </p>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setShowForgotPassword(false);
+                          setResetEmailSent(false);
+                          setError(null);
+                        }}
+                        className="w-full"
+                      >
+                        Back to Sign In
+                      </Button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleForgotPassword} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="reset-email">Email</Label>
+                        <Input
+                          id="reset-email"
+                          type="email"
+                          placeholder="you@company.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          disabled={isLoading}
+                          required
+                          className="h-11"
+                        />
+                      </div>
+                      <Button type="submit" className="w-full h-11" disabled={isLoading}>
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Send Reset Link
+                      </Button>
+                    </form>
+                  )}
+                </CardContent>
+                {!resetEmailSent && (
+                  <CardFooter className="flex flex-col text-center text-sm text-muted-foreground pt-0">
+                    <button
+                      type="button"
+                      className="text-primary font-medium hover:underline"
+                      onClick={() => {
+                        setShowForgotPassword(false);
+                        setError(null);
+                      }}
+                    >
+                      Back to Sign In
+                    </button>
+                  </CardFooter>
                 )}
+              </>
+            ) : (
+              // Login/Signup Tabs
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <CardHeader className="pb-4 space-y-4">
+                  <div className="text-center">
+                    <h2 className="text-2xl font-display font-bold">
+                      {activeTab === "login" ? "Welcome back" : "Get started"}
+                    </h2>
+                    <p className="text-muted-foreground text-sm mt-1">
+                      {activeTab === "login" 
+                        ? "Sign in to your account to continue" 
+                        : "Create your account to get started"}
+                    </p>
+                  </div>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="login">Sign In</TabsTrigger>
+                    <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                  </TabsList>
+                </CardHeader>
 
-                <TabsContent value="login" className="mt-0">
-                  <form onSubmit={handleLogin} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="login-email">Email</Label>
-                      <Input
-                        id="login-email"
-                        type="email"
-                        placeholder="you@company.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        disabled={isLoading}
-                        required
-                        className="h-11"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="login-password">Password</Label>
-                      <Input
-                        id="login-password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        disabled={isLoading}
-                        required
-                        className="h-11"
-                      />
-                    </div>
-                    <Button type="submit" className="w-full h-11" disabled={isLoading}>
-                      {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Sign In
-                    </Button>
-                  </form>
-                </TabsContent>
+                <CardContent>
+                  {error && (
+                    <Alert variant="destructive" className="mb-4">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <TabsContent value="login" className="mt-0">
+                    <form onSubmit={handleLogin} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="login-email">Email</Label>
+                        <Input
+                          id="login-email"
+                          type="email"
+                          placeholder="you@company.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          disabled={isLoading}
+                          required
+                          className="h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="login-password">Password</Label>
+                          <button
+                            type="button"
+                            className="text-xs text-primary hover:underline"
+                            onClick={() => {
+                              setShowForgotPassword(true);
+                              setError(null);
+                            }}
+                          >
+                            Forgot password?
+                          </button>
+                        </div>
+                        <Input
+                          id="login-password"
+                          type="password"
+                          placeholder="••••••••"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          disabled={isLoading}
+                          required
+                          className="h-11"
+                        />
+                      </div>
+                      <Button type="submit" className="w-full h-11" disabled={isLoading}>
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Sign In
+                      </Button>
+                    </form>
+                  </TabsContent>
 
                 <TabsContent value="signup" className="mt-0">
                   <form onSubmit={handleSignup} className="space-y-4">
@@ -337,21 +465,22 @@ export default function Auth() {
                 </TabsContent>
               </CardContent>
 
-              <CardFooter className="flex flex-col text-center text-sm text-muted-foreground pt-0">
-                <p>
-                  {activeTab === "login" 
-                    ? "Don't have an account? " 
-                    : "Already have an account? "}
-                  <button
-                    type="button"
-                    className="text-primary font-medium hover:underline"
-                    onClick={() => setActiveTab(activeTab === "login" ? "signup" : "login")}
-                  >
-                    {activeTab === "login" ? "Sign up" : "Sign in"}
-                  </button>
-                </p>
-              </CardFooter>
-            </Tabs>
+                <CardFooter className="flex flex-col text-center text-sm text-muted-foreground pt-0">
+                  <p>
+                    {activeTab === "login" 
+                      ? "Don't have an account? " 
+                      : "Already have an account? "}
+                    <button
+                      type="button"
+                      className="text-primary font-medium hover:underline"
+                      onClick={() => setActiveTab(activeTab === "login" ? "signup" : "login")}
+                    >
+                      {activeTab === "login" ? "Sign up" : "Sign in"}
+                    </button>
+                  </p>
+                </CardFooter>
+              </Tabs>
+            )}
           </Card>
 
           <p className="text-center text-xs text-muted-foreground mt-6">
