@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEffect } from "react";
 
 export type NotificationKind =
   | "leave_pending"
@@ -33,9 +34,51 @@ const safeCount = async (fn: () => Promise<number>): Promise<number> => {
 export function useNotifications() {
   const { profile, isAdmin, isHR, isManager } = useAuth();
   const companyId = profile?.company_id ?? null;
+  const queryClient = useQueryClient();
 
   const canApprove = isAdmin || isHR || isManager;
   const canInvite = isAdmin || isHR;
+
+  // Subscribe to realtime changes on notification-related tables
+  useEffect(() => {
+    if (!companyId) return;
+
+    const channel = supabase
+      .channel(`notifications-${companyId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'leave_requests' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["notifications", companyId, canApprove, canInvite] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'overtime_entries' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["notifications", companyId, canApprove, canInvite] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'payroll_runs' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["notifications", companyId, canApprove, canInvite] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'employee_invitations' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["notifications", companyId, canApprove, canInvite] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [companyId, canApprove, canInvite, queryClient]);
 
   return useQuery<NotificationsResult>({
     queryKey: ["notifications", companyId, canApprove, canInvite],
@@ -48,7 +91,6 @@ export function useNotifications() {
         await Promise.all([
           safeCount(async () => {
             if (!canApprove) return 0;
-            // Get employee IDs from this company first
             const { data: companyEmployees } = await supabase
               .from("profiles")
               .select("id")
@@ -65,7 +107,6 @@ export function useNotifications() {
           }),
           safeCount(async () => {
             if (!canApprove) return 0;
-            // Get employee IDs from this company first
             const { data: companyEmployees } = await supabase
               .from("profiles")
               .select("id")
