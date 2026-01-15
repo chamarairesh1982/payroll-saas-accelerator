@@ -18,6 +18,7 @@ import {
   TrendingUp,
   Receipt,
   LogOut,
+  UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -175,9 +176,9 @@ export function Sidebar() {
       {/* Footer */}
       <div className="border-t border-sidebar-border p-4">
         <div className={cn("flex items-center gap-3", isCollapsed && "justify-center")}>
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sidebar-accent">
+          <Link to="/profile" className="flex h-9 w-9 items-center justify-center rounded-full bg-sidebar-accent hover:bg-sidebar-primary/20 transition-colors">
             <span className="text-sm font-semibold text-sidebar-foreground">{userInitials}</span>
-          </div>
+          </Link>
           <AnimatePresence>
             {!isCollapsed && (
               <motion.div
@@ -186,19 +187,31 @@ export function Sidebar() {
                 exit={{ opacity: 0 }}
                 className="flex-1 truncate"
               >
-                <p className="text-sm font-medium text-sidebar-foreground">{userName}</p>
+                <Link to="/profile" className="hover:underline">
+                  <p className="text-sm font-medium text-sidebar-foreground">{userName}</p>
+                </Link>
                 <p className="text-xs text-sidebar-foreground/50 capitalize">{userRole?.role || "No Role"}</p>
               </motion.div>
             )}
           </AnimatePresence>
           <AnimatePresence>
             {!isCollapsed && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => navigate("/profile")}
+                  className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                  title="My Profile"
+                >
+                  <UserCircle className="h-4 w-4" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon-sm"
                   onClick={handleSignOut}
                   className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                  title="Sign Out"
                 >
                   <LogOut className="h-4 w-4" />
                 </Button>

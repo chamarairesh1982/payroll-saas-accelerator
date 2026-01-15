@@ -758,6 +758,7 @@ export type Database = {
           id: string
           last_name: string | null
           nic: string | null
+          notification_preferences: Json | null
           phone: string | null
           status: string | null
           updated_at: string
@@ -782,6 +783,7 @@ export type Database = {
           id: string
           last_name?: string | null
           nic?: string | null
+          notification_preferences?: Json | null
           phone?: string | null
           status?: string | null
           updated_at?: string
@@ -806,6 +808,7 @@ export type Database = {
           id?: string
           last_name?: string | null
           nic?: string | null
+          notification_preferences?: Json | null
           phone?: string | null
           status?: string | null
           updated_at?: string
