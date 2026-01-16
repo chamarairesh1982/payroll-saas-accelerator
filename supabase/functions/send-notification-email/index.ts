@@ -23,11 +23,12 @@ serve(async (req: Request): Promise<Response> => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  let logId: string | null = null;
+
   try {
     const payload: NotificationPayload = await req.json();
     console.log("Received notification payload:", payload);
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get employee details including notification preferences
     const { data: employee, error: empError } = await supabase
@@ -58,6 +59,17 @@ serve(async (req: Request): Promise<Response> => {
     
     if (prefs[prefKey] === false) {
       console.log(`Notifications disabled for ${prefKey}`);
+      
+      // Log skipped notification
+      await supabase.from("notification_logs").insert({
+        employee_id: payload.employee_id,
+        notification_type: payload.type,
+        status: "skipped",
+        subject: `${payload.type} notification skipped - disabled by preference`,
+        recipient_email: employee.email,
+        details: payload.details,
+      });
+      
       return new Response(
         JSON.stringify({ message: "Notifications disabled by user preference" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -112,6 +124,26 @@ serve(async (req: Request): Promise<Response> => {
         break;
     }
 
+    // Create pending log entry
+    const { data: logEntry, error: logError } = await supabase
+      .from("notification_logs")
+      .insert({
+        employee_id: payload.employee_id,
+        notification_type: payload.type,
+        status: "pending",
+        subject,
+        recipient_email: employee.email,
+        details: payload.details,
+      })
+      .select("id")
+      .single();
+
+    if (logError) {
+      console.error("Error creating log entry:", logError);
+    } else {
+      logId = logEntry.id;
+    }
+
     // Send email using Resend API directly
     const emailResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -131,6 +163,18 @@ serve(async (req: Request): Promise<Response> => {
     
     if (!emailResponse.ok) {
       console.error("Failed to send email:", emailResult);
+      
+      // Update log with failure
+      if (logId) {
+        await supabase
+          .from("notification_logs")
+          .update({
+            status: "failed",
+            error_message: JSON.stringify(emailResult),
+          })
+          .eq("id", logId);
+      }
+      
       return new Response(
         JSON.stringify({ error: emailResult }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -139,6 +183,17 @@ serve(async (req: Request): Promise<Response> => {
 
     console.log("Email sent successfully:", emailResult);
 
+    // Update log with success
+    if (logId) {
+      await supabase
+        .from("notification_logs")
+        .update({
+          status: "sent",
+          sent_at: new Date().toISOString(),
+        })
+        .eq("id", logId);
+    }
+
     return new Response(
       JSON.stringify({ success: true, emailId: emailResult.id }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -146,6 +201,18 @@ serve(async (req: Request): Promise<Response> => {
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("Error sending notification email:", errorMessage);
+    
+    // Update log with error if we have one
+    if (logId) {
+      await supabase
+        .from("notification_logs")
+        .update({
+          status: "failed",
+          error_message: errorMessage,
+        })
+        .eq("id", logId);
+    }
+    
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

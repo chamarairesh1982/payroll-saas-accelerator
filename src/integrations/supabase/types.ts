@@ -469,6 +469,53 @@ export type Database = {
           },
         ]
       }
+      notification_logs: {
+        Row: {
+          created_at: string
+          details: Json | null
+          employee_id: string
+          error_message: string | null
+          id: string
+          notification_type: string
+          recipient_email: string
+          sent_at: string | null
+          status: string
+          subject: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          employee_id: string
+          error_message?: string | null
+          id?: string
+          notification_type: string
+          recipient_email: string
+          sent_at?: string | null
+          status?: string
+          subject: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          employee_id?: string
+          error_message?: string | null
+          id?: string
+          notification_type?: string
+          recipient_email?: string
+          sent_at?: string | null
+          status?: string
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       overtime_entries: {
         Row: {
           approved_at: string | null

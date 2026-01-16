@@ -19,6 +19,7 @@ import {
   Receipt,
   LogOut,
   UserCircle,
+  Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,7 @@ const adminNavItems: NavItem[] = [
   { label: "Companies", icon: Building2, href: "/companies" },
   { label: "Company Settings", icon: Settings, href: "/company" },
   { label: "User Management", icon: Shield, href: "/users" },
+  { label: "Activity Log", icon: Bell, href: "/activity-log" },
 ];
 
 export function Sidebar() {
