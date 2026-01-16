@@ -1,8 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { Resend } from "npm:resend@2.0.0";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,7 +53,7 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     // Check notification preferences
-    const prefs = employee.notification_preferences || {};
+    const prefs = (employee.notification_preferences || {}) as Record<string, boolean>;
     const prefKey = `email_${payload.type}_updates`;
     
     if (prefs[prefKey] === false) {
@@ -113,18 +112,35 @@ serve(async (req: Request): Promise<Response> => {
         break;
     }
 
-    // Send email
-    const emailResponse = await resend.emails.send({
-      from: "HR System <onboarding@resend.dev>",
-      to: [employee.email],
-      subject,
-      html: htmlContent,
+    // Send email using Resend API directly
+    const emailResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: "HR System <onboarding@resend.dev>",
+        to: [employee.email],
+        subject,
+        html: htmlContent,
+      }),
     });
 
-    console.log("Email sent successfully:", emailResponse);
+    const emailResult = await emailResponse.json();
+    
+    if (!emailResponse.ok) {
+      console.error("Failed to send email:", emailResult);
+      return new Response(
+        JSON.stringify({ error: emailResult }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("Email sent successfully:", emailResult);
 
     return new Response(
-      JSON.stringify({ success: true, emailId: emailResponse.id }),
+      JSON.stringify({ success: true, emailId: emailResult.id }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
