@@ -24,6 +24,7 @@ import Companies from "./pages/Companies";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
+import ActivityLog from "./pages/ActivityLog";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -72,6 +73,7 @@ function AppRoutes() {
       <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/activity-log" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
