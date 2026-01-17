@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 interface NotificationPayload {
-  type: "leave" | "overtime" | "payroll";
+  type: "leave" | "overtime" | "payroll" | "loan";
   employee_id: string;
   status: string;
   details?: Record<string, unknown>;
@@ -119,6 +119,25 @@ serve(async (req: Request): Promise<Response> => {
           ${payload.details?.pay_period_start ? `<p><strong>Period:</strong> ${payload.details.pay_period_start} to ${payload.details.pay_period_end}</p>` : ""}
           ${payload.details?.net_salary ? `<p><strong>Net Salary:</strong> LKR ${Number(payload.details.net_salary).toLocaleString()}</p>` : ""}
           <p>Please log in to view your payslip.</p>
+          <p>Best regards,<br>HR Team</p>
+        `;
+        break;
+
+      case "loan":
+        const loanTypeLabel = payload.details?.loan_type 
+          ? String(payload.details.loan_type).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+          : "Loan";
+        subject = `${loanTypeLabel} Application ${payload.status.charAt(0).toUpperCase() + payload.status.slice(1)}`;
+        htmlContent = `
+          <h2>Loan Application Update</h2>
+          <p>Dear ${employeeName},</p>
+          <p>Your <strong>${loanTypeLabel}</strong> application has been <strong>${payload.status}</strong>.</p>
+          ${payload.details?.principal_amount ? `<p><strong>Principal Amount:</strong> LKR ${Number(payload.details.principal_amount).toLocaleString()}</p>` : ""}
+          ${payload.details?.monthly_deduction ? `<p><strong>Monthly Deduction:</strong> LKR ${Number(payload.details.monthly_deduction).toLocaleString()}</p>` : ""}
+          ${payload.details?.interest_rate ? `<p><strong>Interest Rate:</strong> ${payload.details.interest_rate}%</p>` : ""}
+          ${payload.details?.start_date ? `<p><strong>Start Date:</strong> ${payload.details.start_date}</p>` : ""}
+          ${payload.details?.expected_end_date ? `<p><strong>Expected End Date:</strong> ${payload.details.expected_end_date}</p>` : ""}
+          <p>Please log in to the HR system for more details.</p>
           <p>Best regards,<br>HR Team</p>
         `;
         break;
