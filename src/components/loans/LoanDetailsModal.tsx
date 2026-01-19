@@ -37,11 +37,13 @@ const statusConfig: Record<
 };
 
 const loanStatusConfig: Record<
-  "active" | "completed" | "defaulted",
-  { label: string; variant: "default" | "secondary" | "destructive" }
+  "pending" | "active" | "completed" | "rejected" | "defaulted",
+  { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
 > = {
+  pending: { label: "Pending Approval", variant: "outline" },
   active: { label: "Active", variant: "default" },
   completed: { label: "Completed", variant: "secondary" },
+  rejected: { label: "Rejected", variant: "destructive" },
   defaulted: { label: "Defaulted", variant: "destructive" },
 };
 
@@ -66,8 +68,8 @@ export function LoanDetailsModal({ loan, open, onOpenChange }: LoanDetailsModalP
         <DialogHeader>
           <div className="flex items-center gap-3">
             <DialogTitle>Loan Details</DialogTitle>
-            <Badge variant={loanStatusConfig[loan.status].variant}>
-              {loanStatusConfig[loan.status].label}
+            <Badge variant={loanStatusConfig[loan.status as keyof typeof loanStatusConfig]?.variant || "secondary"}>
+              {loanStatusConfig[loan.status as keyof typeof loanStatusConfig]?.label || loan.status}
             </Badge>
           </div>
           <DialogDescription>

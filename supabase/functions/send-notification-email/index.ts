@@ -128,18 +128,31 @@ serve(async (req: Request): Promise<Response> => {
           ? String(payload.details.loan_type).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
           : "Loan";
         subject = `${loanTypeLabel} Application ${payload.status.charAt(0).toUpperCase() + payload.status.slice(1)}`;
-        htmlContent = `
-          <h2>Loan Application Update</h2>
-          <p>Dear ${employeeName},</p>
-          <p>Your <strong>${loanTypeLabel}</strong> application has been <strong>${payload.status}</strong>.</p>
-          ${payload.details?.principal_amount ? `<p><strong>Principal Amount:</strong> LKR ${Number(payload.details.principal_amount).toLocaleString()}</p>` : ""}
-          ${payload.details?.monthly_deduction ? `<p><strong>Monthly Deduction:</strong> LKR ${Number(payload.details.monthly_deduction).toLocaleString()}</p>` : ""}
-          ${payload.details?.interest_rate ? `<p><strong>Interest Rate:</strong> ${payload.details.interest_rate}%</p>` : ""}
-          ${payload.details?.start_date ? `<p><strong>Start Date:</strong> ${payload.details.start_date}</p>` : ""}
-          ${payload.details?.expected_end_date ? `<p><strong>Expected End Date:</strong> ${payload.details.expected_end_date}</p>` : ""}
-          <p>Please log in to the HR system for more details.</p>
-          <p>Best regards,<br>HR Team</p>
-        `;
+        
+        if (payload.status === "rejected") {
+          htmlContent = `
+            <h2>Loan Application Rejected</h2>
+            <p>Dear ${employeeName},</p>
+            <p>We regret to inform you that your <strong>${loanTypeLabel}</strong> application has been <strong>rejected</strong>.</p>
+            ${payload.details?.principal_amount ? `<p><strong>Requested Amount:</strong> LKR ${Number(payload.details.principal_amount).toLocaleString()}</p>` : ""}
+            ${payload.details?.rejection_reason ? `<p><strong>Reason:</strong> ${payload.details.rejection_reason}</p>` : ""}
+            <p>If you have any questions, please contact the HR department.</p>
+            <p>Best regards,<br>HR Team</p>
+          `;
+        } else {
+          htmlContent = `
+            <h2>Loan Application Approved</h2>
+            <p>Dear ${employeeName},</p>
+            <p>Congratulations! Your <strong>${loanTypeLabel}</strong> application has been <strong>approved</strong>.</p>
+            ${payload.details?.principal_amount ? `<p><strong>Principal Amount:</strong> LKR ${Number(payload.details.principal_amount).toLocaleString()}</p>` : ""}
+            ${payload.details?.monthly_deduction ? `<p><strong>Monthly Deduction:</strong> LKR ${Number(payload.details.monthly_deduction).toLocaleString()}</p>` : ""}
+            ${payload.details?.interest_rate ? `<p><strong>Interest Rate:</strong> ${payload.details.interest_rate}%</p>` : ""}
+            ${payload.details?.start_date ? `<p><strong>Start Date:</strong> ${payload.details.start_date}</p>` : ""}
+            ${payload.details?.expected_end_date ? `<p><strong>Expected End Date:</strong> ${payload.details.expected_end_date}</p>` : ""}
+            <p>The loan amount will be disbursed as per company policy. Monthly deductions will begin from the next payroll cycle.</p>
+            <p>Best regards,<br>HR Team</p>
+          `;
+        }
         break;
     }
 

@@ -416,6 +416,7 @@ export type Database = {
           monthly_deduction: number
           outstanding_amount: number
           principal_amount: number
+          rejection_reason: string | null
           start_date: string
           status: Database["public"]["Enums"]["loan_status"]
           updated_at: string
@@ -432,6 +433,7 @@ export type Database = {
           monthly_deduction: number
           outstanding_amount: number
           principal_amount: number
+          rejection_reason?: string | null
           start_date: string
           status?: Database["public"]["Enums"]["loan_status"]
           updated_at?: string
@@ -448,6 +450,7 @@ export type Database = {
           monthly_deduction?: number
           outstanding_amount?: number
           principal_amount?: number
+          rejection_reason?: string | null
           start_date?: string
           status?: Database["public"]["Enums"]["loan_status"]
           updated_at?: string
@@ -1032,7 +1035,7 @@ export type Database = {
       employee_status: "active" | "inactive" | "terminated"
       employment_type: "permanent" | "contract" | "probation" | "intern"
       leave_status: "pending" | "approved" | "rejected" | "cancelled"
-      loan_status: "active" | "completed" | "defaulted"
+      loan_status: "pending" | "active" | "completed" | "defaulted" | "rejected"
       loan_type: "salary_advance" | "personal_loan" | "emergency_loan"
       overtime_day_type: "weekday" | "saturday" | "sunday" | "holiday"
       payroll_status:
@@ -1177,7 +1180,7 @@ export const Constants = {
       employee_status: ["active", "inactive", "terminated"],
       employment_type: ["permanent", "contract", "probation", "intern"],
       leave_status: ["pending", "approved", "rejected", "cancelled"],
-      loan_status: ["active", "completed", "defaulted"],
+      loan_status: ["pending", "active", "completed", "defaulted", "rejected"],
       loan_type: ["salary_advance", "personal_loan", "emergency_loan"],
       overtime_day_type: ["weekday", "saturday", "sunday", "holiday"],
       payroll_status: [

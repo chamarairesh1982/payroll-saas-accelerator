@@ -56,9 +56,13 @@ export const useLoans = () => {
   });
 
   const stats = {
+    pendingLoans: loans.filter((l) => l.status === "pending").length,
     activeLoans: loans.filter((l) => l.status === "active").length,
     completedLoans: loans.filter((l) => l.status === "completed").length,
-    totalDisbursed: loans.reduce((sum, l) => sum + Number(l.principal_amount), 0),
+    rejectedLoans: loans.filter((l) => l.status === "rejected").length,
+    totalDisbursed: loans
+      .filter((l) => l.status === "active" || l.status === "completed")
+      .reduce((sum, l) => sum + Number(l.principal_amount), 0),
     totalOutstanding: loans
       .filter((l) => l.status === "active")
       .reduce((sum, l) => sum + Number(l.outstanding_amount), 0),
@@ -88,19 +92,68 @@ export const useLoans = () => {
         interest_rate: data.interest_rate || 0,
         start_date: data.start_date,
         expected_end_date: data.expected_end_date,
-        status: "active",
-        approved_by: user.id,
-        approved_at: new Date().toISOString(),
+        status: "pending",
       });
 
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["loans", companyId] });
-      toast.success("Loan created successfully");
+      toast.success("Loan application submitted for approval");
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to create loan");
+      toast.error(error.message || "Failed to submit loan application");
+    },
+  });
+
+  const approveLoanMutation = useMutation({
+    mutationFn: async (loanId: string) => {
+      if (!user?.id) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from("loans")
+        .update({
+          status: "active",
+          approved_by: user.id,
+          approved_at: new Date().toISOString(),
+        })
+        .eq("id", loanId)
+        .eq("status", "pending");
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["loans", companyId] });
+      toast.success("Loan approved successfully");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to approve loan");
+    },
+  });
+
+  const rejectLoanMutation = useMutation({
+    mutationFn: async ({ loanId, reason }: { loanId: string; reason: string }) => {
+      if (!user?.id) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from("loans")
+        .update({
+          status: "rejected",
+          rejection_reason: reason,
+          approved_by: user.id,
+          approved_at: new Date().toISOString(),
+        })
+        .eq("id", loanId)
+        .eq("status", "pending");
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["loans", companyId] });
+      toast.success("Loan rejected");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to reject loan");
     },
   });
 
@@ -124,8 +177,12 @@ export const useLoans = () => {
     stats,
     isLoading,
     createLoan: createLoanMutation.mutate,
+    approveLoan: approveLoanMutation.mutate,
+    rejectLoan: rejectLoanMutation.mutate,
     updateLoan: updateLoanMutation.mutate,
     isCreating: createLoanMutation.isPending,
+    isApproving: approveLoanMutation.isPending,
+    isRejecting: rejectLoanMutation.isPending,
     isUpdating: updateLoanMutation.isPending,
   };
 };
