@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { CreditCard, Plus, Search, Eye, TrendingDown, Wallet, Clock, Loader2 } from "lucide-react";
+import { CreditCard, Plus, Search, Eye, TrendingDown, Wallet, Clock, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,21 +11,25 @@ import { motion } from "framer-motion";
 import { useLoans, loanTypes, formatLoanType, Loan } from "@/hooks/useLoans";
 import { LoanModal } from "@/components/loans/LoanModal";
 import { LoanDetailsModal } from "@/components/loans/LoanDetailsModal";
+import { LoanApprovalModal } from "@/components/loans/LoanApprovalModal";
 import { Progress } from "@/components/ui/progress";
 
-const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
+const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+  pending: { label: "Pending", variant: "outline" },
   active: { label: "Active", variant: "default" },
   completed: { label: "Completed", variant: "secondary" },
+  rejected: { label: "Rejected", variant: "destructive" },
   defaulted: { label: "Defaulted", variant: "destructive" },
 };
 
 const Loans = () => {
-  const { loans, stats, isLoading } = useLoans();
+  const { loans, stats, isLoading, approveLoan, rejectLoan, isApproving, isRejecting } = useLoans();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [showLoanModal, setShowLoanModal] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   const filteredLoans = useMemo(() => {
@@ -44,7 +48,11 @@ const Loans = () => {
 
   const handleViewDetails = (loan: Loan) => {
     setSelectedLoan(loan);
-    setShowDetailsModal(true);
+    if (loan.status === "pending") {
+      setShowApprovalModal(true);
+    } else {
+      setShowDetailsModal(true);
+    }
   };
 
   const getRepaymentProgress = (loan: Loan) => {
@@ -76,7 +84,22 @@ const Loans = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+        {stats.pendingLoans > 0 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+            <Card className="border-warning bg-warning/5">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Pending Approval</CardTitle>
+                <AlertCircle className="h-4 w-4 text-warning" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.pendingLoans}</div>
+                <p className="text-xs text-muted-foreground">Awaiting review</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -147,8 +170,10 @@ const Loans = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
             <SelectItem value="defaulted">Defaulted</SelectItem>
           </SelectContent>
         </Select>
@@ -232,8 +257,19 @@ const Loans = () => {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => handleViewDetails(loan)}>
-                      <Eye className="h-4 w-4" />
+                    <Button 
+                      variant={loan.status === "pending" ? "default" : "ghost"} 
+                      size="sm" 
+                      onClick={() => handleViewDetails(loan)}
+                    >
+                      {loan.status === "pending" ? (
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Review
+                        </>
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -272,6 +308,15 @@ const Loans = () => {
         }
         open={showDetailsModal}
         onOpenChange={setShowDetailsModal}
+      />
+      <LoanApprovalModal
+        loan={selectedLoan}
+        open={showApprovalModal}
+        onOpenChange={setShowApprovalModal}
+        onApprove={approveLoan}
+        onReject={(loanId, reason) => rejectLoan({ loanId, reason })}
+        isApproving={isApproving}
+        isRejecting={isRejecting}
       />
     </MainLayout>
   );
