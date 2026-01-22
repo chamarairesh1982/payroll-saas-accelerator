@@ -20,6 +20,7 @@ import {
   LogOut,
   UserCircle,
   Bell,
+  Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -55,11 +56,17 @@ const adminNavItems: NavItem[] = [
   { label: "Activity Log", icon: Bell, href: "/activity-log" },
 ];
 
+const superAdminNavItems: NavItem[] = [
+  { label: "Platform Admin", icon: Crown, href: "/super-admin" },
+];
+
 export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, userRole, signOut } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const isSuperAdmin = userRole?.role === "super_admin";
 
   const handleSignOut = async () => {
     await signOut();
@@ -173,6 +180,7 @@ export function Sidebar() {
         <NavSection title="Main" items={mainNavItems} />
         <NavSection title="Configuration" items={configNavItems} />
         <NavSection title="Administration" items={adminNavItems} />
+        {isSuperAdmin && <NavSection title="Platform" items={superAdminNavItems} />}
       </nav>
 
       {/* Footer */}

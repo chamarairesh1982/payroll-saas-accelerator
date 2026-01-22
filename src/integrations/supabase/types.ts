@@ -74,9 +74,20 @@ export type Database = {
           id: string
           is_active: boolean
           logo_url: string | null
+          max_employees: number | null
           name: string
           phone: string | null
           registration_number: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_ends_at: string | null
+          subscription_plan:
+            | Database["public"]["Enums"]["subscription_plan"]
+            | null
+          subscription_started_at: string | null
+          subscription_status:
+            | Database["public"]["Enums"]["subscription_status"]
+            | null
           updated_at: string
         }
         Insert: {
@@ -91,9 +102,20 @@ export type Database = {
           id?: string
           is_active?: boolean
           logo_url?: string | null
+          max_employees?: number | null
           name: string
           phone?: string | null
           registration_number?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_ends_at?: string | null
+          subscription_plan?:
+            | Database["public"]["Enums"]["subscription_plan"]
+            | null
+          subscription_started_at?: string | null
+          subscription_status?:
+            | Database["public"]["Enums"]["subscription_status"]
+            | null
           updated_at?: string
         }
         Update: {
@@ -108,9 +130,20 @@ export type Database = {
           id?: string
           is_active?: boolean
           logo_url?: string | null
+          max_employees?: number | null
           name?: string
           phone?: string | null
           registration_number?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_ends_at?: string | null
+          subscription_plan?:
+            | Database["public"]["Enums"]["subscription_plan"]
+            | null
+          subscription_started_at?: string | null
+          subscription_status?:
+            | Database["public"]["Enums"]["subscription_status"]
+            | null
           updated_at?: string
         }
         Relationships: []
@@ -787,6 +820,39 @@ export type Database = {
           },
         ]
       }
+      platform_stats: {
+        Row: {
+          active_companies: number | null
+          created_at: string | null
+          id: string
+          mrr: number | null
+          stat_date: string
+          total_companies: number | null
+          total_employees: number | null
+          total_users: number | null
+        }
+        Insert: {
+          active_companies?: number | null
+          created_at?: string | null
+          id?: string
+          mrr?: number | null
+          stat_date?: string
+          total_companies?: number | null
+          total_employees?: number | null
+          total_users?: number | null
+        }
+        Update: {
+          active_companies?: number | null
+          created_at?: string | null
+          id?: string
+          mrr?: number | null
+          stat_date?: string
+          total_companies?: number | null
+          total_employees?: number | null
+          total_users?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -926,6 +992,45 @@ export type Database = {
           },
         ]
       }
+      subscription_plans: {
+        Row: {
+          created_at: string | null
+          features: Json | null
+          id: string
+          is_active: boolean | null
+          max_employees: number
+          name: string
+          plan_type: Database["public"]["Enums"]["subscription_plan"]
+          price_monthly: number
+          price_yearly: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          max_employees?: number
+          name: string
+          plan_type: Database["public"]["Enums"]["subscription_plan"]
+          price_monthly?: number
+          price_yearly?: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          max_employees?: number
+          name?: string
+          plan_type?: Database["public"]["Enums"]["subscription_plan"]
+          price_monthly?: number
+          price_yearly?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       tax_slabs: {
         Row: {
           company_id: string
@@ -1010,6 +1115,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_add_employee: { Args: { p_company_id: string }; Returns: boolean }
       get_user_company_id: { Args: { p_user_id: string }; Returns: string }
       get_user_company_id_safe: { Args: { p_user_id: string }; Returns: string }
       get_user_role: {
@@ -1045,6 +1151,8 @@ export type Database = {
         | "approved"
         | "paid"
       recovery_status: "pending" | "paid" | "partial" | "overdue"
+      subscription_plan: "free" | "pro" | "enterprise"
+      subscription_status: "active" | "canceled" | "past_due" | "trialing"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1191,6 +1299,8 @@ export const Constants = {
         "paid",
       ],
       recovery_status: ["pending", "paid", "partial", "overdue"],
+      subscription_plan: ["free", "pro", "enterprise"],
+      subscription_status: ["active", "canceled", "past_due", "trialing"],
     },
   },
 } as const
