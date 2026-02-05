@@ -34,6 +34,8 @@ import { useAttendanceSummary } from "@/hooks/useAttendance";
 import { useCreatePayrollRun } from "@/hooks/usePayroll";
 import { useActiveLoanDeductions, getTotalLoanDeductionsFromData, LoanDeduction, formatLoanTypeLabel } from "@/hooks/useActiveLoanDeductions";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
+import { useCompany } from "@/hooks/useCompany";
+import { useCompanyProfileCompleteness } from "@/hooks/useCompanyProfileCompleteness";
 import { PaySlip, PaySlipItem } from "@/types/payroll";
 import {
   calculatePAYE,
@@ -45,6 +47,7 @@ import {
 } from "@/lib/payroll-calculations";
 import { cn } from "@/lib/utils";
 import { PayslipModal } from "./PayslipModal";
+import { CompanyProfileWarning } from "./CompanyProfileWarning";
 
 interface PayrollWizardProps {
   onClose: () => void;
@@ -159,6 +162,8 @@ export function PayrollWizard({ onClose }: PayrollWizardProps) {
   const { employees, isLoading: employeesLoading } = useEmployees();
   const createPayrollRun = useCreatePayrollRun();
   const { isFeatureEnabled } = useFeatureFlags();
+  const { company } = useCompany();
+  const profileCompleteness = useCompanyProfileCompleteness(company);
   
   const loansEnabled = isFeatureEnabled('loans_enabled');
   
@@ -771,6 +776,11 @@ export function PayrollWizard({ onClose }: PayrollWizardProps) {
                     </div>
                   </div>
                 </div>
+
+                {/* Company Profile Warning */}
+                {!profileCompleteness.isPayrollReady && (
+                  <CompanyProfileWarning completeness={profileCompleteness} />
+                )}
               </motion.div>
             )}
 
