@@ -1,21 +1,19 @@
 import { 
-  Employee, 
   PaySlip, 
   PaySlipItem,
-  Loan,
   EPF_EMPLOYEE_RATE, 
   EPF_EMPLOYER_RATE, 
   ETF_EMPLOYER_RATE,
   DEFAULT_PAYE_SLABS 
 } from "@/types/payroll";
-import { mockLoans } from "@/data/mockLoans";
 
 // Calculate PAYE tax based on Sri Lanka tax slabs
-export function calculatePAYE(monthlyTaxableIncome: number): number {
+export function calculatePAYE(monthlyTaxableIncome: number, customSlabs?: { minIncome: number; maxIncome: number; rate: number }[]): number {
+  const slabs = customSlabs || DEFAULT_PAYE_SLABS;
   let tax = 0;
   let remainingIncome = monthlyTaxableIncome;
 
-  for (const slab of DEFAULT_PAYE_SLABS) {
+  for (const slab of slabs) {
     if (remainingIncome <= 0) break;
     
     const slabRange = slab.maxIncome === Infinity 
@@ -36,66 +34,118 @@ export function calculatePAYE(monthlyTaxableIncome: number): number {
 }
 
 // Calculate EPF contribution (employee portion)
-export function calculateEPFEmployee(grossSalary: number): number {
-  return Math.round(grossSalary * EPF_EMPLOYEE_RATE);
+export function calculateEPFEmployee(basicSalary: number): number {
+  return Math.round(basicSalary * EPF_EMPLOYEE_RATE);
 }
 
 // Calculate EPF contribution (employer portion)
-export function calculateEPFEmployer(grossSalary: number): number {
-  return Math.round(grossSalary * EPF_EMPLOYER_RATE);
+export function calculateEPFEmployer(basicSalary: number): number {
+  return Math.round(basicSalary * EPF_EMPLOYER_RATE);
 }
 
 // Calculate ETF contribution (employer only)
-export function calculateETF(grossSalary: number): number {
-  return Math.round(grossSalary * ETF_EMPLOYER_RATE);
+export function calculateETF(basicSalary: number): number {
+  return Math.round(basicSalary * ETF_EMPLOYER_RATE);
 }
 
-// Get active loan deductions for an employee
-export function getEmployeeLoanDeductions(employeeId: string): PaySlipItem[] {
-  const activeLoans = mockLoans.filter(
-    loan => loan.employeeId === employeeId && loan.status === 'active'
-  );
-  
-  return activeLoans.map(loan => ({
-    name: `Loan Recovery - ${loan.loanType === 'salary_advance' ? 'Salary Advance' : loan.loanType === 'personal_loan' ? 'Personal Loan' : 'Emergency Loan'}`,
+// Interface for loan deduction data from database
+export interface LoanDeductionData {
+  loanId: string;
+  loanType: string;
+  monthlyDeduction: number;
+}
+
+// Get loan deduction items for payslip from database data
+export function getLoanDeductionItems(loans: LoanDeductionData[]): PaySlipItem[] {
+  return loans.map(loan => ({
+    name: `Loan Recovery - ${formatLoanTypeName(loan.loanType)}`,
     amount: loan.monthlyDeduction,
     type: 'deduction' as const,
   }));
 }
 
-// Get total loan deductions for an employee
-export function getTotalLoanDeductions(employeeId: string): number {
-  const loanDeductions = getEmployeeLoanDeductions(employeeId);
-  return loanDeductions.reduce((sum, d) => sum + d.amount, 0);
+// Format loan type name for display
+function formatLoanTypeName(loanType: string): string {
+  const labels: Record<string, string> = {
+    salary_advance: 'Salary Advance',
+    personal_loan: 'Personal Loan',
+    emergency_loan: 'Emergency Loan',
+  };
+  return labels[loanType] || loanType;
 }
 
-// Standard allowances (can be configured per company)
+// Get total loan deductions amount
+export function getTotalLoanDeductions(loans: LoanDeductionData[]): number {
+  return loans.reduce((sum, loan) => sum + loan.monthlyDeduction, 0);
+}
+
+// Standard allowances (can be configured per company via salary_components)
 export const defaultAllowances: PaySlipItem[] = [
   { name: "Transport Allowance", amount: 5000, type: "allowance" },
   { name: "Medical Allowance", amount: 3000, type: "allowance" },
 ];
 
-// Generate payslip for an employee
-export function generatePayslip(
-  employee: Employee,
-  payPeriod: { start: Date; end: Date },
-  additionalAllowances: PaySlipItem[] = [],
-  additionalDeductions: PaySlipItem[] = [],
-  workingDays: number = 22,
-  workedDays: number = 22,
-  otHours: number = 0,
-  otRate: number = 1.5
-): PaySlip {
-  const basicSalary = employee.basicSalary;
-  
+// Generate payslip for an employee (without mock data dependencies)
+export interface GeneratePayslipParams {
+  employeeId: string;
+  employee: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    nic: string;
+    dateOfBirth: Date;
+    dateOfJoining: Date;
+    department: string;
+    designation: string;
+    employmentType: 'permanent' | 'contract' | 'probation' | 'intern';
+    status: 'active' | 'inactive' | 'terminated';
+    bankName: string;
+    bankBranch: string;
+    bankAccountNumber: string;
+    epfNumber: string;
+    basicSalary: number;
+    companyId: string;
+    employeeNumber: string;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+  basicSalary: number;
+  payPeriod: { start: Date; end: Date };
+  allowances?: PaySlipItem[];
+  loanDeductions?: LoanDeductionData[];
+  additionalDeductions?: PaySlipItem[];
+  workingDays?: number;
+  workedDays?: number;
+  otHours?: number;
+  otRate?: number;
+  customTaxSlabs?: { minIncome: number; maxIncome: number; rate: number }[];
+}
+
+export function generatePayslipWithData(params: GeneratePayslipParams): PaySlip {
+  const {
+    employeeId,
+    employee,
+    basicSalary,
+    payPeriod,
+    allowances = defaultAllowances,
+    loanDeductions = [],
+    additionalDeductions = [],
+    workingDays = 22,
+    workedDays = 22,
+    otHours = 0,
+    otRate = 1.5,
+    customTaxSlabs,
+  } = params;
+
   // Calculate OT amount (hourly rate = basic / (working days * 8 hours))
   const hourlyRate = basicSalary / (workingDays * 8);
   const otAmount = Math.round(otHours * hourlyRate * otRate);
   
   // Combine allowances
   const allAllowances: PaySlipItem[] = [
-    ...defaultAllowances,
-    ...additionalAllowances,
+    ...allowances,
     ...(otAmount > 0 ? [{ name: "Overtime", amount: otAmount, type: "allowance" as const }] : []),
   ];
   
@@ -110,16 +160,16 @@ export function generatePayslip(
   
   // Calculate taxable income (gross - EPF employee contribution)
   const taxableIncome = grossSalary - epfEmployee;
-  const payeTax = calculatePAYE(taxableIncome);
+  const payeTax = calculatePAYE(taxableIncome, customTaxSlabs);
   
-  // Get loan deductions for this employee
-  const loanDeductions = getEmployeeLoanDeductions(employee.id);
+  // Get loan deduction items
+  const loanDeductionItems = getLoanDeductionItems(loanDeductions);
   
   // Combine all deductions
   const allDeductions: PaySlipItem[] = [
     { name: "EPF (Employee 8%)", amount: epfEmployee, type: "deduction" },
     { name: "PAYE Tax", amount: payeTax, type: "deduction" },
-    ...loanDeductions,
+    ...loanDeductionItems,
     ...additionalDeductions,
   ];
   
@@ -127,9 +177,9 @@ export function generatePayslip(
   const netSalary = grossSalary - totalDeductions;
   
   return {
-    id: `PS-${Date.now()}`,
+    id: `PS-${Date.now()}-${employeeId}`,
     payrollRunId: "",
-    employeeId: employee.id,
+    employeeId,
     employee,
     basicSalary,
     allowances: allAllowances,
