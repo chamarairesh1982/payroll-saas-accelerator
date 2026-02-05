@@ -163,3 +163,71 @@ export const useCreatePayrollRun = () => {
     },
   });
 };
+
+// Hook to get employee's own payslips with full employee data
+export const useMyPayslips = () => {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["my-payslips", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+
+      // Get full profile for payslip generation
+      const { data: myProfile } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name, employee_number, department, designation, epf_number, bank_name, bank_account_number")
+        .eq("id", user.id)
+        .single();
+
+      const { data, error } = await supabase
+        .from("payslips")
+        .select(`
+          *,
+          payroll_run:payroll_runs!payslips_payroll_run_id_fkey(
+            pay_period_start, pay_period_end, pay_date, status,
+            company:companies!payroll_runs_company_id_fkey(name)
+          )
+        `)
+        .eq("employee_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      
+      // Attach employee profile to each payslip for PDF generation
+      return (data || []).map(p => ({ ...p, my_profile: myProfile }));
+    },
+    enabled: !!user?.id,
+  });
+};
+
+// Hook to send payslip emails
+export const useSendPayslipEmails = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { payrollRunId: string; employeeIds?: string[] }) => {
+      const { data: result, error } = await supabase.functions.invoke("send-payslip-email", {
+        body: {
+          payroll_run_id: data.payrollRunId,
+          employee_ids: data.employeeIds,
+        },
+      });
+
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["notification-logs"] });
+      if (result.sent > 0) {
+        toast.success(`Payslips sent to ${result.sent} employee${result.sent > 1 ? "s" : ""}`);
+      }
+      if (result.failed > 0) {
+        toast.error(`Failed to send ${result.failed} payslip${result.failed > 1 ? "s" : ""}`);
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to send payslip emails");
+    },
+  });
+};
