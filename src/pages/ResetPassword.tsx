@@ -9,7 +9,8 @@ import { Loader2, AlertCircle, CheckCircle2, KeyRound } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { z } from "zod";
+import { passwordSchema } from "@/lib/password-validation";
+import { PasswordStrengthIndicator } from "@/components/auth/PasswordStrengthIndicator";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -43,14 +44,11 @@ export default function ResetPassword() {
     e.preventDefault();
     setError(null);
 
-    // Validate password
-    try {
-      z.string().min(6, "Password must be at least 6 characters").parse(password);
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        setError(err.errors[0].message);
-        return;
-      }
+    // Validate password with strong requirements
+    const result = passwordSchema.safeParse(password);
+    if (!result.success) {
+      setError(result.error.errors[0].message);
+      return;
     }
 
     if (password !== confirmPassword) {
@@ -165,6 +163,7 @@ export default function ResetPassword() {
                     required
                     className="h-11"
                   />
+                  <PasswordStrengthIndicator password={password} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="confirm-new-password">Confirm New Password</Label>

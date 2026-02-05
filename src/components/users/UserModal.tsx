@@ -16,6 +16,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { UserWithRole, CreateUserData } from "@/hooks/useUsers";
+import { PasswordStrengthIndicator } from "@/components/auth/PasswordStrengthIndicator";
+import { validatePassword } from "@/lib/password-validation";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -64,6 +66,7 @@ export const UserModal = ({
     designation: "",
     phone: "",
   });
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user && mode === "edit") {
@@ -93,8 +96,15 @@ export const UserModal = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setPasswordError(null);
 
     if (mode === "create") {
+      // Validate password strength
+      const validation = validatePassword(formData.password);
+      if (!validation.valid) {
+        setPasswordError(validation.errors[0]);
+        return;
+      }
       onSubmit({
         email: formData.email,
         password: formData.password,
@@ -178,8 +188,12 @@ export const UserModal = ({
                     setFormData({ ...formData, password: e.target.value })
                   }
                   required
-                  minLength={6}
+                  minLength={8}
                 />
+                <PasswordStrengthIndicator password={formData.password} />
+                {passwordError && (
+                  <p className="text-xs text-destructive">{passwordError}</p>
+                )}
               </div>
             </>
           )}

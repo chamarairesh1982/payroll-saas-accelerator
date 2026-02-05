@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "npm:zod@3.25.76";
+import { isRateLimited, rateLimitResponse, getRateLimitHeaders } from "../_shared/rate-limiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,10 +20,19 @@ type AppRole =
   | "manager"
   | "employee";
 
+// Password must be 8+ chars with uppercase, lowercase, and number
+const passwordSchema = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .max(72)
+  .refine((p) => /[A-Z]/.test(p), "Password must contain an uppercase letter")
+  .refine((p) => /[a-z]/.test(p), "Password must contain a lowercase letter")
+  .refine((p) => /[0-9]/.test(p), "Password must contain a number");
+
 const createEmployeeSchema = z
   .object({
     email: z.string().trim().email().max(255),
-    password: z.string().min(8).max(72),
+    password: passwordSchema,
     first_name: z.string().trim().min(1).max(100),
     last_name: z.string().trim().min(1).max(100),
 
@@ -56,13 +66,21 @@ const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    // Rate limiting: 10 employee creations per minute per IP
+    const clientIP = req.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
+    const rateLimitResult = isRateLimited(`create-employee:${clientIP}`, { windowMs: 60000, maxRequests: 10 });
+    
+    if (rateLimitResult.limited) {
+      return rateLimitResponse(rateLimitResult.resetAt);
+    }
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
         JSON.stringify({ error: "Unauthorized - missing bearer token" }),
         {
           status: 401,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
+          headers: { "Content-Type": "application/json", ...corsHeaders, ...getRateLimitHeaders(rateLimitResult) },
         }
       );
     }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Settings as SettingsIcon, Save, Loader2, Lock, Crown } from "lucide-react";
+import { Settings as SettingsIcon, Save, Loader2, Lock, Crown, LogOut, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,8 @@ import { useSubscription } from "@/contexts/SubscriptionContext";
 import { UpgradePlanCard } from "@/components/subscription/UpgradePlanCard";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ModuleConfig {
   key: keyof Omit<FeatureFlags, 'id' | 'company_id' | 'created_at' | 'updated_at'>;
@@ -63,10 +65,12 @@ const Settings = () => {
   const [searchParams] = useSearchParams();
   const { flags, isLoading, updateFlags, isUpdating, canEnableFeature } = useFeatureFlags();
   const { plan, isPaid } = useSubscription();
+  const { signOut } = useAuth();
   
   const [activeTab, setActiveTab] = useState("modules");
   const [localFlags, setLocalFlags] = useState<Partial<FeatureFlags>>({});
   const [hasChanges, setHasChanges] = useState(false);
+  const [isSigningOutAll, setIsSigningOutAll] = useState(false);
 
   // Handle subscription success/cancel from Stripe redirect
   useEffect(() => {
@@ -105,6 +109,22 @@ const Settings = () => {
   const handleSave = () => {
     updateFlags(localFlags);
     setHasChanges(false);
+  };
+
+  const handleLogoutAllDevices = async () => {
+    setIsSigningOutAll(true);
+    try {
+      // Sign out from all sessions
+      const { error } = await supabase.auth.signOut({ scope: 'global' });
+      if (error) throw error;
+      
+      toast.success("Signed out from all devices");
+      // The auth state change will redirect to login
+    } catch (error: any) {
+      toast.error(error.message || "Failed to sign out from all devices");
+    } finally {
+      setIsSigningOutAll(false);
+    }
   };
 
   const getPlanBadge = (requiresPlan?: 'pro' | 'enterprise') => {
@@ -160,6 +180,10 @@ const Settings = () => {
           <TabsTrigger value="modules">
             <SettingsIcon className="h-4 w-4 mr-2" />
             Modules
+          </TabsTrigger>
+          <TabsTrigger value="security">
+            <Shield className="h-4 w-4 mr-2" />
+            Security
           </TabsTrigger>
           <TabsTrigger value="billing">
             <Crown className="h-4 w-4 mr-2" />
@@ -270,6 +294,76 @@ const Settings = () => {
                   </Button>
                 )}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="security" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Session Management
+              </CardTitle>
+              <CardDescription>
+                Manage your active sessions across all devices.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-start justify-between gap-4 p-4 border rounded-lg">
+                <div>
+                  <p className="font-medium">Sign out from all devices</p>
+                  <p className="text-sm text-muted-foreground">
+                    This will sign you out from all devices, including this one. You'll need to sign in again.
+                  </p>
+                </div>
+                <Button
+                  variant="destructive"
+                  onClick={handleLogoutAllDevices}
+                  disabled={isSigningOutAll}
+                >
+                  {isSigningOutAll ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Signing out...
+                    </>
+                  ) : (
+                    <>
+                      <LogOut className="h-4 w-4" />
+                      Sign Out All
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Security Best Practices</CardTitle>
+              <CardDescription>
+                Tips to keep your account secure.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary">•</span>
+                  Use a strong password with at least 8 characters, including uppercase, lowercase, and numbers.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary">•</span>
+                  Don't share your login credentials with anyone.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary">•</span>
+                  Sign out from all devices if you suspect unauthorized access.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary">•</span>
+                  Keep your email address up to date for account recovery.
+                </li>
+              </ul>
             </CardContent>
           </Card>
         </TabsContent>

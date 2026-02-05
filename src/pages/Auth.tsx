@@ -12,13 +12,17 @@ import { z } from "zod";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { passwordSchema } from "@/lib/password-validation";
+import { PasswordStrengthIndicator } from "@/components/auth/PasswordStrengthIndicator";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(1, "Password is required"),
 });
 
-const signupSchema = loginSchema.extend({
+const signupSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: passwordSchema,
   firstName: z.string().min(2, "First name is required"),
   lastName: z.string().min(2, "Last name is required"),
   confirmPassword: z.string(),
@@ -472,6 +476,7 @@ export default function Auth() {
                           required
                           className="h-11"
                         />
+                        <PasswordStrengthIndicator password={password} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="confirmPassword">Confirm Password</Label>
