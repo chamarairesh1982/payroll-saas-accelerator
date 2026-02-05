@@ -1231,6 +1231,10 @@ export type Database = {
       }
       get_user_company_id: { Args: { p_user_id: string }; Returns: string }
       get_user_company_id_safe: { Args: { p_user_id: string }; Returns: string }
+      get_user_enterprise_company_ids: {
+        Args: { p_user_id: string }
+        Returns: string[]
+      }
       get_user_role: {
         Args: { p_company_id: string; p_user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
