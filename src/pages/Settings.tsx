@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Settings as SettingsIcon, Save, Loader2, Lock, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,9 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useFeatureFlags, FeatureFlags } from "@/hooks/useFeatureFlags";
 import { useSubscription } from "@/contexts/SubscriptionContext";
+import { UpgradePlanCard } from "@/components/subscription/UpgradePlanCard";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface ModuleConfig {
   key: keyof Omit<FeatureFlags, 'id' | 'company_id' | 'created_at' | 'updated_at'>;
@@ -56,11 +60,25 @@ const modules: ModuleConfig[] = [
 ];
 
 const Settings = () => {
+  const [searchParams] = useSearchParams();
   const { flags, isLoading, updateFlags, isUpdating, canEnableFeature } = useFeatureFlags();
   const { plan, isPaid } = useSubscription();
   
+  const [activeTab, setActiveTab] = useState("modules");
   const [localFlags, setLocalFlags] = useState<Partial<FeatureFlags>>({});
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Handle subscription success/cancel from Stripe redirect
+  useEffect(() => {
+    const subscriptionStatus = searchParams.get("subscription");
+    if (subscriptionStatus === "success") {
+      toast.success("Subscription updated successfully!");
+      setActiveTab("billing");
+    } else if (subscriptionStatus === "canceled") {
+      toast.info("Subscription checkout was canceled.");
+      setActiveTab("billing");
+    }
+  }, [searchParams]);
 
   // Initialize local state when flags load
   useEffect(() => {
@@ -137,19 +155,48 @@ const Settings = () => {
         </Button>
       </div>
 
-      <div className="grid gap-6">
-        {/* Module Toggles */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <SettingsIcon className="h-5 w-5" />
-              Module Configuration
-            </CardTitle>
-            <CardDescription>
-              Enable or disable modules based on your business needs. Some modules require a paid subscription.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="modules">
+            <SettingsIcon className="h-4 w-4 mr-2" />
+            Modules
+          </TabsTrigger>
+          <TabsTrigger value="billing">
+            <Crown className="h-4 w-4 mr-2" />
+            Billing
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="modules" className="space-y-6">
+          {/* Module Toggles */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <SettingsIcon className="h-5 w-5" />
+                    Module Configuration
+                  </CardTitle>
+                  <CardDescription>
+                    Enable or disable modules based on your business needs.
+                  </CardDescription>
+                </div>
+                <Button size="lg" onClick={handleSave} disabled={!hasChanges || isUpdating}>
+                  {isUpdating ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-5 w-5" />
+                      Save Changes
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
             {modules.map((module, index) => {
               const canEnable = canEnableFeature(module.key);
               const isEnabled = localFlags[module.key] ?? false;
@@ -197,35 +244,40 @@ const Settings = () => {
               );
             })}
           </CardContent>
-        </Card>
+          </Card>
 
-        {/* Current Plan Info */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Subscription</CardTitle>
-            <CardDescription>
-              Current plan: <span className="font-semibold capitalize">{plan}</span>
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  {isPaid 
-                    ? "You have access to premium features based on your plan."
-                    : "Upgrade to unlock more modules and features."}
-                </p>
+          {/* Current Plan Info */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Subscription</CardTitle>
+              <CardDescription>
+                Current plan: <span className="font-semibold capitalize">{plan}</span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    {isPaid 
+                      ? "You have access to premium features based on your plan."
+                      : "Upgrade to unlock more modules and features."}
+                  </p>
+                </div>
+                {!isPaid && (
+                  <Button variant="default" onClick={() => setActiveTab("billing")}>
+                    <Crown className="h-4 w-4" />
+                    Upgrade Plan
+                  </Button>
+                )}
               </div>
-              {!isPaid && (
-                <Button variant="default">
-                  <Crown className="h-4 w-4" />
-                  Upgrade Plan
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="billing">
+          <UpgradePlanCard />
+        </TabsContent>
+      </Tabs>
     </MainLayout>
   );
 };
