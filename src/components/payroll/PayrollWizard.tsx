@@ -36,6 +36,7 @@ import { useActiveLoanDeductions, getTotalLoanDeductionsFromData, LoanDeduction,
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { useCompany } from "@/hooks/useCompany";
 import { useCompanyProfileCompleteness } from "@/hooks/useCompanyProfileCompleteness";
+import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { PaySlip, PaySlipItem } from "@/types/payroll";
 import {
   calculatePAYE,
@@ -48,6 +49,7 @@ import {
 import { cn } from "@/lib/utils";
 import { PayslipModal } from "./PayslipModal";
 import { CompanyProfileWarning } from "./CompanyProfileWarning";
+import { EmailVerificationWarning } from "./EmailVerificationWarning";
 
 interface PayrollWizardProps {
   onClose: () => void;
@@ -164,8 +166,12 @@ export function PayrollWizard({ onClose }: PayrollWizardProps) {
   const { isFeatureEnabled } = useFeatureFlags();
   const { company } = useCompany();
   const profileCompleteness = useCompanyProfileCompleteness(company);
+  const { isVerified: isEmailVerified, email: userEmail } = useEmailVerification();
   
   const loansEnabled = isFeatureEnabled('loans_enabled');
+  
+  // Block payroll if email not verified OR company profile incomplete
+  const canProcessPayroll = isEmailVerified && profileCompleteness.isPayrollReady;
   
   const [currentStep, setCurrentStep] = useState(1);
   const [isComplete, setIsComplete] = useState(false);
@@ -777,8 +783,13 @@ export function PayrollWizard({ onClose }: PayrollWizardProps) {
                   </div>
                 </div>
 
+                {/* Email Verification Warning */}
+                {!isEmailVerified && (
+                  <EmailVerificationWarning email={userEmail} />
+                )}
+
                 {/* Company Profile Warning */}
-                {!profileCompleteness.isPayrollReady && (
+                {isEmailVerified && !profileCompleteness.isPayrollReady && (
                   <CompanyProfileWarning completeness={profileCompleteness} />
                 )}
               </motion.div>
@@ -836,7 +847,11 @@ export function PayrollWizard({ onClose }: PayrollWizardProps) {
                 <ArrowRight className="h-4 w-4" />
               </Button>
             ) : (
-              <Button onClick={handleProcess} disabled={createPayrollRun.isPending}>
+              <Button 
+                onClick={handleProcess} 
+                disabled={createPayrollRun.isPending || !canProcessPayroll}
+                title={!canProcessPayroll ? "Email verification and complete company profile required" : undefined}
+              >
                 {createPayrollRun.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />

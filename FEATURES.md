@@ -97,6 +97,7 @@ This document outlines all implemented features for the Sri Lanka Payroll SaaS p
 
 ### 2. User Management & Authentication
 - [x] **Email/Password Authentication** - Standard signup/login
+- [x] **Email Verification** - Required email confirmation before full access
 - [x] **Password Reset** - Email-based password recovery
 - [x] **User Roles** - Super Admin, Admin, HR, Manager, Employee
 - [x] **Role-Based Access Control** - Feature access by role
@@ -169,7 +170,7 @@ This document outlines all implemented features for the Sri Lanka Payroll SaaS p
 ## 🔲 Recommended for Production (Not Yet Implemented)
 
 ### High Priority
-- [ ] **Email Verification** - Require email confirmation before login
+- [x] **Email Verification** - ✅ Implemented - Blocks payroll approval for unverified emails
 - [ ] **Password Strength Validation** - Enforce strong passwords
 - [ ] **Session Management** - Token refresh, logout all devices
 - [ ] **Audit Logging** - Track all data changes
