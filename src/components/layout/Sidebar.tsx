@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -25,22 +25,24 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
 interface NavItem {
   label: string;
   icon: React.ElementType;
   href: string;
   badge?: number;
+  featureFlag?: 'attendance_enabled' | 'overtime_enabled' | 'loans_enabled' | 'leave_management_enabled' | 'advanced_reports_enabled';
 }
 
 const mainNavItems: NavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/" },
   { label: "Employees", icon: Users, href: "/employees" },
-  { label: "Time & Attendance", icon: Clock, href: "/attendance" },
+  { label: "Time & Attendance", icon: Clock, href: "/attendance", featureFlag: "attendance_enabled" },
   { label: "Payroll", icon: DollarSign, href: "/payroll" },
-  { label: "Leave", icon: Calendar, href: "/leave" },
-  { label: "Overtime", icon: TrendingUp, href: "/overtime" },
-  { label: "Loans", icon: CreditCard, href: "/loans" },
+  { label: "Leave", icon: Calendar, href: "/leave", featureFlag: "leave_management_enabled" },
+  { label: "Overtime", icon: TrendingUp, href: "/overtime", featureFlag: "overtime_enabled" },
+  { label: "Loans", icon: CreditCard, href: "/loans", featureFlag: "loans_enabled" },
 ];
 
 const configNavItems: NavItem[] = [
@@ -51,7 +53,8 @@ const configNavItems: NavItem[] = [
 
 const adminNavItems: NavItem[] = [
   { label: "Companies", icon: Building2, href: "/companies" },
-  { label: "Company Settings", icon: Settings, href: "/company" },
+  { label: "Company Settings", icon: Building2, href: "/company" },
+  { label: "Module Settings", icon: Settings, href: "/settings" },
   { label: "User Management", icon: Shield, href: "/users" },
   { label: "Activity Log", icon: Bell, href: "/activity-log" },
 ];
@@ -64,9 +67,18 @@ export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, userRole, signOut } = useAuth();
+  const { isFeatureEnabled } = useFeatureFlags();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const isSuperAdmin = userRole?.role === "super_admin";
+
+  // Filter nav items based on feature flags
+  const filteredMainNavItems = useMemo(() => {
+    return mainNavItems.filter(item => {
+      if (!item.featureFlag) return true;
+      return isFeatureEnabled(item.featureFlag);
+    });
+  }, [isFeatureEnabled]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -177,7 +189,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-6 overflow-y-auto p-4 scrollbar-hide">
-        <NavSection title="Main" items={mainNavItems} />
+        <NavSection title="Main" items={filteredMainNavItems} />
         <NavSection title="Configuration" items={configNavItems} />
         <NavSection title="Administration" items={adminNavItems} />
         {isSuperAdmin && <NavSection title="Platform" items={superAdminNavItems} />}

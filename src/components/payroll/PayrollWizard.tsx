@@ -32,6 +32,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useEmployees, Employee } from "@/hooks/useEmployees";
 import { useAttendanceSummary } from "@/hooks/useAttendance";
 import { useCreatePayrollRun } from "@/hooks/usePayroll";
+import { useActiveLoanDeductions, getTotalLoanDeductionsFromData, LoanDeduction, formatLoanTypeLabel } from "@/hooks/useActiveLoanDeductions";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { PaySlip, PaySlipItem } from "@/types/payroll";
 import {
   calculatePAYE,
@@ -55,12 +57,14 @@ const steps = [
   { id: 4, title: "Confirm & Process", icon: FileCheck },
 ];
 
-// Generate payslip from employee with attendance data
+// Generate payslip from employee with attendance data and loan deductions
 function generatePayslipFromEmployee(
   employee: Employee,
   attendanceSummary: { workedDays: number; workedHours: number } | undefined,
+  loanDeductions: LoanDeduction[],
   payPeriod: { start: Date; end: Date },
-  workingDays: number = 22
+  workingDays: number = 22,
+  loansEnabled: boolean = false
 ): PaySlip {
   const basicSalary = employee.basic_salary || 0;
   const workedDays = attendanceSummary?.workedDays ?? workingDays;
@@ -85,11 +89,22 @@ function generatePayslipFromEmployee(
   const taxableIncome = grossSalary - epfEmployee;
   const payeTax = calculatePAYE(taxableIncome);
   
-  // Combine all deductions
+  // Combine all deductions (statutory + loans)
   const allDeductions: PaySlipItem[] = [
     { name: "EPF (Employee 8%)", amount: epfEmployee, type: "deduction" },
     { name: "PAYE Tax", amount: payeTax, type: "deduction" },
   ];
+
+  // Add loan deductions if loans module is enabled
+  if (loansEnabled && loanDeductions.length > 0) {
+    loanDeductions.forEach(loan => {
+      allDeductions.push({
+        name: `${formatLoanTypeLabel(loan.loanType)} Deduction`,
+        amount: loan.monthlyDeduction,
+        type: "deduction",
+      });
+    });
+  }
   
   const totalDeductions = allDeductions.reduce((sum, d) => sum + d.amount, 0);
   const netSalary = grossSalary - totalDeductions;
@@ -143,6 +158,9 @@ export function PayrollWizard({ onClose }: PayrollWizardProps) {
   const { toast } = useToast();
   const { employees, isLoading: employeesLoading } = useEmployees();
   const createPayrollRun = useCreatePayrollRun();
+  const { isFeatureEnabled } = useFeatureFlags();
+  
+  const loansEnabled = isFeatureEnabled('loans_enabled');
   
   const [currentStep, setCurrentStep] = useState(1);
   const [isComplete, setIsComplete] = useState(false);
@@ -180,6 +198,9 @@ export function PayrollWizard({ onClose }: PayrollWizardProps) {
     payPeriod.year
   );
 
+  // Fetch loan deductions for selected employees
+  const { data: loanDeductions = {} } = useActiveLoanDeductions(selectedEmployees);
+
   // Step 3: Generated Payslips
   const payslips = useMemo(() => {
     const selected = activeEmployees.filter((e) => selectedEmployees.includes(e.id));
@@ -187,13 +208,16 @@ export function PayrollWizard({ onClose }: PayrollWizardProps) {
       generatePayslipFromEmployee(
         employee,
         attendanceSummary[employee.id],
+        loanDeductions[employee.id] || [],
         {
           start: new Date(payPeriod.year, payPeriod.month - 1, 1),
           end: new Date(payPeriod.year, payPeriod.month, 0),
-        }
+        },
+        22,
+        loansEnabled
       )
     );
-  }, [selectedEmployees, payPeriod, activeEmployees, attendanceSummary]);
+  }, [selectedEmployees, payPeriod, activeEmployees, attendanceSummary, loanDeductions, loansEnabled]);
 
   const totals = useMemo(() => ({
     totalGrossSalary: payslips.reduce((sum, p) => sum + p.grossSalary, 0),
