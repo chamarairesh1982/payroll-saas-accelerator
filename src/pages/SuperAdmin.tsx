@@ -7,21 +7,18 @@ import {
   Building2, 
   Users, 
   CreditCard, 
-  TrendingUp,
-  DollarSign,
-  UserPlus,
   Activity,
   Crown,
   Settings,
   BarChart3
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { motion } from "framer-motion";
-import { format, subDays } from "date-fns";
 import { PlatformOverview } from "@/components/superadmin/PlatformOverview";
 import { CompaniesManagement } from "@/components/superadmin/CompaniesManagement";
 import { PlansManagement } from "@/components/superadmin/PlansManagement";
 import { PlatformActivity } from "@/components/superadmin/PlatformActivity";
+import { PlatformSettings } from "@/components/superadmin/PlatformSettings";
+import { SuperAdminManagement } from "@/components/superadmin/SuperAdminManagement";
 
 const SuperAdmin = () => {
   const { role } = useAuth();
@@ -120,7 +117,7 @@ const SuperAdmin = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full max-w-2xl grid-cols-4">
+        <TabsList className="grid w-full max-w-3xl grid-cols-6">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -136,6 +133,14 @@ const SuperAdmin = () => {
           <TabsTrigger value="activity" className="flex items-center gap-2">
             <Activity className="h-4 w-4" />
             <span className="hidden sm:inline">Activity</span>
+          </TabsTrigger>
+          <TabsTrigger value="admins" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            <span className="hidden sm:inline">Admins</span>
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">Settings</span>
           </TabsTrigger>
         </TabsList>
 
@@ -153,6 +158,14 @@ const SuperAdmin = () => {
 
         <TabsContent value="activity">
           <PlatformActivity />
+        </TabsContent>
+
+        <TabsContent value="admins">
+          <SuperAdminManagement />
+        </TabsContent>
+
+        <TabsContent value="settings">
+          <PlatformSettings />
         </TabsContent>
       </Tabs>
     </MainLayout>
