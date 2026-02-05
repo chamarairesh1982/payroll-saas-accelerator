@@ -14,6 +14,7 @@ import {
   Users,
   Loader2,
   Send,
+  Upload,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ import {
 import { useEmployees, departments } from "@/hooks/useEmployees";
 import { useAuth } from "@/contexts/AuthContext";
 import { InviteEmployeeModal } from "@/components/employees/InviteEmployeeModal";
+import { CSVImportModal } from "@/components/employees/CSVImportModal";
 import { cn } from "@/lib/utils";
 
 const statusStyles: Record<string, string> = {
@@ -77,8 +79,9 @@ const Employees = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
-  const canInvite = isAdmin || isHR;
+  const canManage = isAdmin || isHR;
 
   const filteredEmployees = useMemo(() => {
     return employees.filter((employee) => {
@@ -137,11 +140,17 @@ const Employees = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          {canInvite && (
-            <Button variant="outline" onClick={() => setShowInviteModal(true)}>
-              <Send className="h-4 w-4" />
-              Invite Employee
-            </Button>
+          {canManage && (
+            <>
+              <Button variant="outline" onClick={() => setShowImportModal(true)}>
+                <Upload className="h-4 w-4" />
+                Import CSV
+              </Button>
+              <Button variant="outline" onClick={() => setShowInviteModal(true)}>
+                <Send className="h-4 w-4" />
+                Invite
+              </Button>
+            </>
           )}
           <Link to="/employees/new">
             <Button size="lg">
@@ -406,6 +415,12 @@ const Employees = () => {
       <InviteEmployeeModal
         open={showInviteModal}
         onOpenChange={setShowInviteModal}
+      />
+      
+      {/* CSV Import Modal */}
+      <CSVImportModal
+        open={showImportModal}
+        onOpenChange={setShowImportModal}
       />
     </MainLayout>
   );
