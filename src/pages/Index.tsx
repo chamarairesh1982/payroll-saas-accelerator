@@ -8,9 +8,12 @@ import { QuickActions } from "@/components/dashboard/QuickActions";
 import { UpcomingPayments } from "@/components/dashboard/UpcomingPayments";
 import { SetupChecklist } from "@/components/dashboard/SetupChecklist";
 import { CompanyOnboarding } from "@/components/onboarding/CompanyOnboarding";
+import { MultiCompanyDashboard } from "@/components/multicompany";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { useMultiCompany } from "@/hooks/useMultiCompany";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
 
 const formatCurrency = (value: number) => {
   if (value >= 1000000) {
@@ -25,6 +28,7 @@ const formatCurrency = (value: number) => {
 const Dashboard = () => {
   const { profile, user, loading: authLoading } = useAuth();
   const { data: stats, isLoading } = useDashboardStats();
+  const { hasMultipleCompanies, canAddSubsidiary, subsidiaries } = useMultiCompany();
   const [showOnboarding, setShowOnboarding] = useState(true);
 
   const handleOnboardingComplete = useCallback(() => {
@@ -41,8 +45,9 @@ const Dashboard = () => {
       : 0;
 
   const showSetupChecklist = stats && stats.setupProgress.completedSteps < stats.setupProgress.totalSteps;
-
-  // Show company onboarding if user needs to set up company
+  
+  // Check if user has access to multi-company dashboard
+  const showMultiCompanyDashboard = hasMultipleCompanies || subsidiaries.length > 0 || canAddSubsidiary;
   if (needsCompanySetup && showOnboarding) {
     return (
       <MainLayout>
@@ -63,6 +68,14 @@ const Dashboard = () => {
           </p>
         </div>
       </div>
+
+      {/* Multi-Company Dashboard - Show for enterprise users with subsidiaries */}
+      {showMultiCompanyDashboard && (
+        <div className="mb-8">
+          <MultiCompanyDashboard />
+          <Separator className="mt-8" />
+        </div>
+      )}
 
       {/* Setup Checklist - Show when setup is incomplete */}
       {showSetupChecklist && stats && (

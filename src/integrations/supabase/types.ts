@@ -76,6 +76,7 @@ export type Database = {
           logo_url: string | null
           max_employees: number | null
           name: string
+          parent_company_id: string | null
           phone: string | null
           registration_number: string | null
           stripe_customer_id: string | null
@@ -104,6 +105,7 @@ export type Database = {
           logo_url?: string | null
           max_employees?: number | null
           name: string
+          parent_company_id?: string | null
           phone?: string | null
           registration_number?: string | null
           stripe_customer_id?: string | null
@@ -132,6 +134,7 @@ export type Database = {
           logo_url?: string | null
           max_employees?: number | null
           name?: string
+          parent_company_id?: string | null
           phone?: string | null
           registration_number?: string | null
           stripe_customer_id?: string | null
@@ -146,7 +149,15 @@ export type Database = {
             | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "companies_parent_company_id_fkey"
+            columns: ["parent_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       company_feature_flags: {
         Row: {
@@ -1193,6 +1204,31 @@ export type Database = {
     }
     Functions: {
       can_add_employee: { Args: { p_company_id: string }; Returns: boolean }
+      can_manage_company: {
+        Args: { p_company_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      get_accessible_companies: {
+        Args: { p_user_id: string }
+        Returns: {
+          company_id: string
+          is_subsidiary: boolean
+        }[]
+      }
+      get_multi_company_stats: {
+        Args: { p_user_id: string }
+        Returns: {
+          pending_leave_requests: number
+          pending_loan_approvals: number
+          total_companies: number
+          total_employees: number
+          total_payroll_processed: number
+        }[]
+      }
+      get_subsidiary_companies: {
+        Args: { p_parent_company_id: string }
+        Returns: string[]
+      }
       get_user_company_id: { Args: { p_user_id: string }; Returns: string }
       get_user_company_id_safe: { Args: { p_user_id: string }; Returns: string }
       get_user_role: {
