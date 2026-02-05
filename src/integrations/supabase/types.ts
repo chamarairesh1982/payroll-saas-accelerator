@@ -148,6 +148,53 @@ export type Database = {
         }
         Relationships: []
       }
+      company_feature_flags: {
+        Row: {
+          advanced_reports_enabled: boolean
+          api_access_enabled: boolean
+          attendance_enabled: boolean
+          company_id: string
+          created_at: string
+          id: string
+          leave_management_enabled: boolean
+          loans_enabled: boolean
+          overtime_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          advanced_reports_enabled?: boolean
+          api_access_enabled?: boolean
+          attendance_enabled?: boolean
+          company_id: string
+          created_at?: string
+          id?: string
+          leave_management_enabled?: boolean
+          loans_enabled?: boolean
+          overtime_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          advanced_reports_enabled?: boolean
+          api_access_enabled?: boolean
+          attendance_enabled?: boolean
+          company_id?: string
+          created_at?: string
+          id?: string
+          leave_management_enabled?: boolean
+          loans_enabled?: boolean
+          overtime_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_feature_flags_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_documents: {
         Row: {
           created_at: string

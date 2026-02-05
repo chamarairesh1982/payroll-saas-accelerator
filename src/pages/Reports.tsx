@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { FileText, Download, FileSpreadsheet, Calendar, Users, Wallet, ClipboardList, TrendingUp, Building2, Building } from "lucide-react";
+import { FileText, Download, FileSpreadsheet, Calendar, Users, Wallet, TrendingUp, Building2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,9 +11,6 @@ import { motion } from "framer-motion";
 import { format, subMonths } from "date-fns";
 import { toast } from "sonner";
 import {
-  getPayrollSummaryData,
-  getContributionData,
-  getLeaveBalanceData,
   exportPayrollSummaryPDF,
   exportPayrollSummaryExcel,
   exportContributionsPDF,
@@ -21,10 +18,15 @@ import {
   exportLeaveBalancePDF,
   exportLeaveBalanceExcel,
   getBalanceByCode,
-  leaveTypes,
 } from "@/lib/report-exports";
 import { BankFileExport } from "@/components/reports/BankFileExport";
 import { PayrollRecord } from "@/lib/bank-file-export";
+import {
+  usePayrollReportData,
+  useContributionReportData,
+  useLeaveBalanceReportData,
+  useBankFileData,
+} from "@/hooks/useReportData";
 
 const months = Array.from({ length: 12 }, (_, i) => {
   const date = subMonths(new Date(), i);
@@ -35,25 +37,15 @@ const Reports = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString());
   const monthDate = useMemo(() => new Date(selectedMonth), [selectedMonth]);
 
-  const payrollData = useMemo(() => getPayrollSummaryData(monthDate), [monthDate]);
-  const contributionData = useMemo(() => getContributionData(monthDate), [monthDate]);
-  const leaveBalanceData = useMemo(() => getLeaveBalanceData(), []);
+  // Fetch data from hooks
+  const { data: payrollData, isLoading: payrollLoading } = usePayrollReportData();
+  const { data: contributionData = [], isLoading: contributionLoading } = useContributionReportData();
+  const { data: leaveData, isLoading: leaveLoading } = useLeaveBalanceReportData();
+  const { data: bankFileData = [], isLoading: bankFileLoading } = useBankFileData();
 
-  // Transform payroll data for bank file export
-  const bankFileData: PayrollRecord[] = useMemo(() => {
-    return payrollData.payslips.map((p) => ({
-      employeeNumber: p.employee.employeeNumber,
-      firstName: p.employee.firstName,
-      lastName: p.employee.lastName,
-      bankName: p.employee.bankName || "",
-      bankBranch: p.employee.bankBranch || "",
-      accountNumber: p.employee.bankAccountNumber || "",
-      netSalary: p.netSalary,
-      epfNumber: p.employee.epfNumber || "",
-      nic: p.employee.nic || "",
-    }));
-  }, [payrollData]);
+  const isLoading = payrollLoading || contributionLoading || leaveLoading;
 
+  // Calculate contribution totals
   const contributionTotals = useMemo(() => 
     contributionData.reduce(
       (acc, row) => ({
@@ -66,21 +58,82 @@ const Reports = () => {
       { basicSalary: 0, epfEmployee: 0, epfEmployer: 0, epfTotal: 0, etfEmployer: 0 }
     ), [contributionData]);
 
-  const handleExport = (type: string, format: 'pdf' | 'excel') => {
+  const handleExport = (type: string, formatType: 'pdf' | 'excel') => {
     try {
-      if (type === 'payroll') {
-        format === 'pdf' ? exportPayrollSummaryPDF(monthDate) : exportPayrollSummaryExcel(monthDate);
+      if (type === 'payroll' && payrollData) {
+        if (formatType === 'pdf') {
+          exportPayrollSummaryPDF(
+            payrollData.payslips,
+            payrollData.totals || { totalGrossSalary: 0, totalNetSalary: 0, totalEpfEmployee: 0, totalEpfEmployer: 0, totalEtf: 0, totalPaye: 0, employeeCount: 0 },
+            payrollData.departmentSummary,
+            monthDate
+          );
+        } else {
+          exportPayrollSummaryExcel(
+            payrollData.payslips,
+            payrollData.totals || { totalGrossSalary: 0, totalNetSalary: 0, totalEpfEmployee: 0, totalEpfEmployer: 0, totalEtf: 0, totalPaye: 0, employeeCount: 0 },
+            monthDate
+          );
+        }
       } else if (type === 'contributions') {
-        format === 'pdf' ? exportContributionsPDF(monthDate) : exportContributionsExcel(monthDate);
-      } else if (type === 'leave') {
-        format === 'pdf' ? exportLeaveBalancePDF() : exportLeaveBalanceExcel();
+        if (formatType === 'pdf') {
+          exportContributionsPDF(contributionData, monthDate);
+        } else {
+          exportContributionsExcel(contributionData, monthDate);
+        }
+      } else if (type === 'leave' && leaveData) {
+        const leaveTypes = leaveData.leaveTypes.map(lt => ({
+          code: lt.code,
+          name: lt.name,
+          days_per_year: lt.days_per_year,
+        }));
+        if (formatType === 'pdf') {
+          exportLeaveBalancePDF(leaveData.employees, leaveTypes);
+        } else {
+          exportLeaveBalanceExcel(leaveData.employees, leaveTypes);
+        }
       }
-      toast.success(`Report exported as ${format.toUpperCase()}`, {
+      toast.success(`Report exported as ${formatType.toUpperCase()}`, {
         description: `Your ${type} report has been downloaded.`,
       });
     } catch (error) {
       toast.error("Export failed", { description: "Please try again." });
     }
+  };
+
+  // Transform bank file data
+  const bankFileRecords: PayrollRecord[] = useMemo(() => {
+    return bankFileData.map((p) => ({
+      employeeNumber: p.employeeNumber,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      bankName: p.bankName,
+      bankBranch: p.bankBranch,
+      accountNumber: p.accountNumber,
+      netSalary: p.netSalary,
+      epfNumber: p.epfNumber,
+      nic: p.nic,
+    }));
+  }, [bankFileData]);
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  const totals = payrollData?.totals || {
+    totalGrossSalary: 0,
+    totalNetSalary: 0,
+    totalEpfEmployee: 0,
+    totalEpfEmployer: 0,
+    totalEtf: 0,
+    totalPaye: 0,
+    employeeCount: 0,
   };
 
   return (
@@ -114,7 +167,7 @@ const Reports = () => {
               <Wallet className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">LKR {(payrollData.totals.totalGrossSalary / 1000).toFixed(0)}K</div>
+              <div className="text-2xl font-bold">LKR {(totals.totalGrossSalary / 1000).toFixed(0)}K</div>
               <p className="text-xs text-muted-foreground">{format(monthDate, "MMMM yyyy")}</p>
             </CardContent>
           </Card>
@@ -153,7 +206,7 @@ const Reports = () => {
               <Users className="h-4 w-4 text-accent" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{payrollData.totals.employeeCount}</div>
+              <div className="text-2xl font-bold">{totals.employeeCount}</div>
               <p className="text-xs text-muted-foreground">Active employees</p>
             </CardContent>
           </Card>
@@ -192,21 +245,21 @@ const Reports = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-muted/50 rounded-lg p-4">
                   <p className="text-sm text-muted-foreground">Gross Salary</p>
-                  <p className="text-xl font-semibold">LKR {payrollData.totals.totalGrossSalary.toLocaleString()}</p>
+                  <p className="text-xl font-semibold">LKR {totals.totalGrossSalary.toLocaleString()}</p>
                 </div>
                 <div className="bg-muted/50 rounded-lg p-4">
                   <p className="text-sm text-muted-foreground">Net Salary</p>
-                  <p className="text-xl font-semibold">LKR {payrollData.totals.totalNetSalary.toLocaleString()}</p>
+                  <p className="text-xl font-semibold">LKR {totals.totalNetSalary.toLocaleString()}</p>
                 </div>
                 <div className="bg-muted/50 rounded-lg p-4">
                   <p className="text-sm text-muted-foreground">Total Deductions</p>
                   <p className="text-xl font-semibold text-destructive">
-                    LKR {(payrollData.totals.totalEpfEmployee + payrollData.totals.totalPaye).toLocaleString()}
+                    LKR {(totals.totalEpfEmployee + totals.totalPaye).toLocaleString()}
                   </p>
                 </div>
                 <div className="bg-muted/50 rounded-lg p-4">
                   <p className="text-sm text-muted-foreground">PAYE Tax</p>
-                  <p className="text-xl font-semibold">LKR {payrollData.totals.totalPaye.toLocaleString()}</p>
+                  <p className="text-xl font-semibold">LKR {totals.totalPaye.toLocaleString()}</p>
                 </div>
               </div>
 
@@ -224,15 +277,22 @@ const Reports = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {Object.entries(payrollData.departmentSummary).map(([dept, summary]) => (
+                    {Object.entries(payrollData?.departmentSummary || {}).map(([dept, summary]) => (
                       <TableRow key={dept}>
                         <TableCell className="font-medium">{dept}</TableCell>
-                        <TableCell className="text-center">{summary.count}</TableCell>
-                        <TableCell className="text-right">{summary.basicTotal.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">{summary.grossTotal.toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-medium">{summary.netTotal.toLocaleString()}</TableCell>
+                        <TableCell className="text-center">{(summary as any).count}</TableCell>
+                        <TableCell className="text-right">{(summary as any).basicTotal.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">{(summary as any).grossTotal.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-medium">{(summary as any).netTotal.toLocaleString()}</TableCell>
                       </TableRow>
                     ))}
+                    {Object.keys(payrollData?.departmentSummary || {}).length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                          No payroll data available. Run payroll first.
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -312,6 +372,13 @@ const Reports = () => {
                         <TableCell className="text-right">{row.etfEmployer.toLocaleString()}</TableCell>
                       </TableRow>
                     ))}
+                    {contributionData.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                          No active employees found.
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -346,26 +413,24 @@ const Reports = () => {
                       <TableHead>Emp #</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Department</TableHead>
-                      <TableHead className="text-center">Annual</TableHead>
-                      <TableHead className="text-center">Casual</TableHead>
-                      <TableHead className="text-center">Sick</TableHead>
-                      <TableHead className="text-center">Maternity</TableHead>
+                      {leaveData?.leaveTypes.slice(0, 4).map((lt) => (
+                        <TableHead key={lt.id} className="text-center">{lt.name}</TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {leaveBalanceData.map((row) => (
+                    {leaveData?.employees.map((row) => (
                       <TableRow key={row.employeeNumber}>
                         <TableCell className="font-medium">{row.employeeNumber}</TableCell>
                         <TableCell>{row.name}</TableCell>
                         <TableCell>{row.department}</TableCell>
-                        {['AL', 'CL', 'SL', 'ML'].map((code) => {
-                          const balance = getBalanceByCode(row.balances, code);
-                          const leaveType = leaveTypes.find(lt => lt.code === code);
+                        {leaveData?.leaveTypes.slice(0, 4).map((lt) => {
+                          const balance = row.balances.find(b => b.leaveTypeCode === lt.code);
                           const remaining = balance?.available || 0;
-                          const total = leaveType?.daysPerYear || 0;
+                          const total = lt.days_per_year;
                           const percentage = total > 0 ? (remaining / total) * 100 : 0;
                           return (
-                            <TableCell key={code} className="text-center">
+                            <TableCell key={lt.code} className="text-center">
                               <span className={percentage < 30 ? "text-destructive" : percentage < 60 ? "text-warning" : ""}>
                                 {remaining} / {total}
                               </span>
@@ -374,6 +439,13 @@ const Reports = () => {
                         })}
                       </TableRow>
                     ))}
+                    {(leaveData?.employees.length || 0) === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                          No employees found. Configure leave types and add employees first.
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -383,7 +455,7 @@ const Reports = () => {
 
         {/* Bank File Export Tab */}
         <TabsContent value="bank">
-          <BankFileExport payrollData={bankFileData} month={monthDate} />
+          <BankFileExport payrollData={bankFileRecords} month={monthDate} />
         </TabsContent>
       </Tabs>
     </MainLayout>
