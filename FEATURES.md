@@ -171,9 +171,9 @@ This document outlines all implemented features for the Sri Lanka Payroll SaaS p
 
 ### High Priority
 - [x] **Email Verification** - ✅ Implemented - Blocks payroll approval for unverified emails
+- [x] **Audit Logging** - ✅ Implemented - Tracks payroll approval/payment, salary/tax changes
 - [ ] **Password Strength Validation** - Enforce strong passwords
 - [ ] **Session Management** - Token refresh, logout all devices
-- [ ] **Audit Logging** - Track all data changes
 - [ ] **Data Backup Strategy** - Automated backups
 
 ### Medium Priority
