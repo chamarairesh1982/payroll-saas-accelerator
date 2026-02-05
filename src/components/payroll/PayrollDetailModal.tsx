@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import {
@@ -10,6 +10,10 @@ import {
   DollarSign,
   FileText,
   Loader2,
+  Building,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +24,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableFooter,
 } from "@/components/ui/table";
 import {
   Dialog,
@@ -28,10 +33,23 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePayslips, PayrollRun } from "@/hooks/usePayroll";
 import { formatLKR } from "@/lib/payroll-calculations";
 import { downloadPayslipPDF, downloadAllPayslipsPDF } from "@/lib/payslip-pdf";
+import { BankFileExport } from "@/components/reports/BankFileExport";
+import { PayrollTotalsRow } from "./PayrollTotalsRow";
+import { PayrollRecord } from "@/lib/bank-file-export";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+
+const statusConfig: Record<string, { label: string; icon: any; className: string }> = {
+  draft: { label: "Draft", icon: FileText, className: "bg-muted text-muted-foreground" },
+  processing: { label: "Processing", icon: Clock, className: "bg-primary/15 text-primary" },
+  pending_approval: { label: "Pending Approval", icon: AlertCircle, className: "bg-warning/15 text-warning" },
+  approved: { label: "Approved", icon: CheckCircle2, className: "bg-success/15 text-success" },
+  paid: { label: "Paid", icon: CheckCircle2, className: "bg-success/15 text-success" },
+};
 
 interface PayrollDetailModalProps {
   payrollRun: PayrollRun;
@@ -66,6 +84,36 @@ export function PayrollDetailModal({ payrollRun, onClose }: PayrollDetailModalPr
   };
 
   const payPeriodLabel = `${format(new Date(payrollRun.pay_period_start), "MMMM yyyy")}`;
+  
+  const StatusIcon = statusConfig[payrollRun.status]?.icon || FileText;
+  const statusInfo = statusConfig[payrollRun.status] || statusConfig.draft;
+
+  // Calculate totals for the totals row
+  const tableTotals = useMemo(() => ({
+    totalBasic: payslips.reduce((sum: number, p: any) => sum + (p.basic_salary || 0), 0),
+    totalOT: payslips.reduce((sum: number, p: any) => sum + (p.ot_amount || 0), 0),
+    totalGross: payslips.reduce((sum: number, p: any) => sum + (p.gross_salary || 0), 0),
+    totalEpfEmployee: payslips.reduce((sum: number, p: any) => sum + (p.epf_employee || 0), 0),
+    totalPaye: payslips.reduce((sum: number, p: any) => sum + (p.paye_tax || 0), 0),
+    totalNet: payslips.reduce((sum: number, p: any) => sum + (p.net_salary || 0), 0),
+  }), [payslips]);
+
+  // Transform payslips to bank file records
+  const bankFileRecords: PayrollRecord[] = useMemo(() => {
+    return payslips.map((p: any) => ({
+      employeeNumber: p.employee?.employee_number || "",
+      firstName: p.employee?.first_name || "",
+      lastName: p.employee?.last_name || "",
+      bankName: p.employee?.bank_name || "",
+      bankBranch: p.employee?.bank_branch || "",
+      accountNumber: p.employee?.bank_account_number || "",
+      netSalary: p.net_salary || 0,
+      epfNumber: p.employee?.epf_number || "",
+      nic: p.employee?.nic || "",
+    }));
+  }, [payslips]);
+
+  const canExportBankFile = payrollRun.status === "approved" || payrollRun.status === "paid";
 
   return (
     <>
@@ -91,7 +139,16 @@ export function PayrollDetailModal({ payrollRun, onClose }: PayrollDetailModalPr
             </div>
             <div>
               <h2 className="font-display text-xl font-bold">Payroll Details</h2>
-              <p className="text-sm text-muted-foreground">{payPeriodLabel}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm text-muted-foreground">{payPeriodLabel}</p>
+                <Badge
+                  variant="secondary"
+                  className={cn("gap-1", statusInfo.className)}
+                >
+                  <StatusIcon className="h-3 w-3" />
+                  {statusInfo.label}
+                </Badge>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -139,91 +196,117 @@ export function PayrollDetailModal({ payrollRun, onClose }: PayrollDetailModalPr
           </div>
         </div>
 
-        {/* Payslips Table */}
+        {/* Tabs for Payslips and Bank Export */}
         <div className="h-[calc(100%-220px)] overflow-y-auto p-6">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : payslips.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <FileText className="h-12 w-12 text-muted-foreground/50" />
-              <p className="mt-4 text-muted-foreground">No payslips found</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead>Employee</TableHead>
-                  <TableHead className="text-right">Basic</TableHead>
-                  <TableHead className="text-right">OT</TableHead>
-                  <TableHead className="text-right">Gross</TableHead>
-                  <TableHead className="text-right">EPF</TableHead>
-                  <TableHead className="text-right">PAYE</TableHead>
-                  <TableHead className="text-right">Net</TableHead>
-                  <TableHead className="w-24"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payslips.map((payslip: any) => (
-                  <TableRow key={payslip.id} className="group">
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                          {payslip.employee?.first_name?.[0]}
-                          {payslip.employee?.last_name?.[0]}
-                        </div>
-                        <div>
-                          <p className="font-medium">
-                            {payslip.employee?.first_name} {payslip.employee?.last_name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {payslip.employee?.employee_number}
-                          </p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatLKR(payslip.basic_salary)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {payslip.ot_amount > 0 ? formatLKR(payslip.ot_amount) : "-"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatLKR(payslip.gross_salary)}
-                    </TableCell>
-                    <TableCell className="text-right text-destructive">
-                      {formatLKR(payslip.epf_employee)}
-                    </TableCell>
-                    <TableCell className="text-right text-destructive">
-                      {payslip.paye_tax > 0 ? formatLKR(payslip.paye_tax) : "-"}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold text-success">
-                      {formatLKR(payslip.net_salary)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => setSelectedPayslip(payslip)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => handleDownloadPayslip(payslip)}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <Tabs defaultValue="payslips" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="payslips">Payslips</TabsTrigger>
+              {canExportBankFile && (
+                <TabsTrigger value="bank-export">
+                  <Building className="mr-2 h-4 w-4" />
+                  Bank Export
+                </TabsTrigger>
+              )}
+            </TabsList>
+
+            <TabsContent value="payslips" className="space-y-4">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : payslips.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <FileText className="h-12 w-12 text-muted-foreground/50" />
+                  <p className="mt-4 text-muted-foreground">No payslips found</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead>Employee</TableHead>
+                      <TableHead className="text-right">Basic</TableHead>
+                      <TableHead className="text-right">OT</TableHead>
+                      <TableHead className="text-right">Gross</TableHead>
+                      <TableHead className="text-right">EPF</TableHead>
+                      <TableHead className="text-right">PAYE</TableHead>
+                      <TableHead className="text-right">Net</TableHead>
+                      <TableHead className="w-24"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {payslips.map((payslip: any) => (
+                      <TableRow key={payslip.id} className="group">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                              {payslip.employee?.first_name?.[0]}
+                              {payslip.employee?.last_name?.[0]}
+                            </div>
+                            <div>
+                              <p className="font-medium">
+                                {payslip.employee?.first_name} {payslip.employee?.last_name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {payslip.employee?.employee_number}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatLKR(payslip.basic_salary)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {payslip.ot_amount > 0 ? formatLKR(payslip.ot_amount) : "-"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatLKR(payslip.gross_salary)}
+                        </TableCell>
+                        <TableCell className="text-right text-destructive">
+                          {formatLKR(payslip.epf_employee)}
+                        </TableCell>
+                        <TableCell className="text-right text-destructive">
+                          {payslip.paye_tax > 0 ? formatLKR(payslip.paye_tax) : "-"}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold text-success">
+                          {formatLKR(payslip.net_salary)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => setSelectedPayslip(payslip)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => handleDownloadPayslip(payslip)}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                  <TableFooter>
+                    <PayrollTotalsRow totals={tableTotals} employeeCount={payslips.length} />
+                  </TableFooter>
+                </Table>
+              )}
+            </TabsContent>
+
+            {canExportBankFile && (
+              <TabsContent value="bank-export">
+                <BankFileExport
+                  payrollData={bankFileRecords}
+                  month={new Date(payrollRun.pay_period_start)}
+                />
+              </TabsContent>
+            )}
+          </Tabs>
         </div>
       </motion.div>
 

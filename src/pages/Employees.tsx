@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -15,6 +15,7 @@ import {
   Loader2,
   Send,
   Upload,
+  FileSpreadsheet,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { InviteEmployeeModal } from "@/components/employees/InviteEmployeeModal";
 import { CSVImportModal } from "@/components/employees/CSVImportModal";
 import { cn } from "@/lib/utils";
+import { exportEmployeesCSV } from "@/lib/employee-csv-export";
+import { toast } from "sonner";
 
 const statusStyles: Record<string, string> = {
   active: "bg-success/15 text-success border-success/30",
@@ -118,6 +121,15 @@ const Employees = () => {
       setDeleteId(null);
     }
   };
+
+  const handleExportCSV = useCallback(() => {
+    if (filteredEmployees.length === 0) {
+      toast.error("No employees to export");
+      return;
+    }
+    exportEmployeesCSV(filteredEmployees);
+    toast.success(`Exported ${filteredEmployees.length} employees to CSV`);
+  }, [filteredEmployees]);
 
   if (isLoading) {
     return (
@@ -249,9 +261,9 @@ const Employees = () => {
             </SelectContent>
           </Select>
         </div>
-        <Button variant="outline">
-          <Download className="h-4 w-4" />
-          Export
+        <Button variant="outline" onClick={handleExportCSV}>
+          <FileSpreadsheet className="h-4 w-4" />
+          Export CSV
         </Button>
       </motion.div>
 
