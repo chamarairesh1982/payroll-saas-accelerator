@@ -10,7 +10,8 @@ import {
   Crown, 
   CheckCircle,
   XCircle,
-  ArrowUpCircle
+  ArrowUpCircle,
+  Link2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,7 +68,9 @@ export function CompaniesManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [planFilter, setPlanFilter] = useState<string>("all");
   const [upgradeCompany, setUpgradeCompany] = useState<any>(null);
+  const [linkSubsidiaryCompany, setLinkSubsidiaryCompany] = useState<any>(null);
   const [selectedPlan, setSelectedPlan] = useState<string>("");
+  const [selectedParentId, setSelectedParentId] = useState<string>("");
   const queryClient = useQueryClient();
 
   const { data: companies = [], isLoading } = useQuery({
@@ -158,6 +161,31 @@ export function CompaniesManagement() {
     },
   });
 
+  const linkSubsidiaryMutation = useMutation({
+    mutationFn: async ({ companyId, parentCompanyId }: { companyId: string; parentCompanyId: string | null }) => {
+      const { error } = await supabase
+        .from("companies")
+        .update({ parent_company_id: parentCompanyId })
+        .eq("id", companyId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-companies"] });
+      queryClient.invalidateQueries({ queryKey: ["platform-stats"] });
+      toast.success("Subsidiary relationship updated");
+      setLinkSubsidiaryCompany(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to update subsidiary");
+    },
+  });
+
+  // Get enterprise companies that can be parents
+  const enterpriseCompanies = companies.filter(
+    (c) => c.subscription_plan === "enterprise" && c.is_active
+  );
+
   const filteredCompanies = companies.filter((company) => {
     const matchesSearch = 
       company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -237,9 +265,21 @@ export function CompaniesManagement() {
                   <TableRow key={company.id}>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{company.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{company.name}</p>
+                          {company.parent_company_id && (
+                            <Badge variant="outline" className="text-xs">
+                              Subsidiary
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground">
                           {company.email || "No email"}
+                          {company.parent_company_id && (
+                            <span className="ml-2">
+                              → {companies.find(c => c.id === company.parent_company_id)?.name}
+                            </span>
+                          )}
                         </p>
                       </div>
                     </TableCell>
@@ -286,6 +326,14 @@ export function CompaniesManagement() {
                           }}>
                             <ArrowUpCircle className="mr-2 h-4 w-4" />
                             Change Plan
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => {
+                            setLinkSubsidiaryCompany(company);
+                            setSelectedParentId(company.parent_company_id || "none");
+                          }}>
+                            <Link2 className="mr-2 h-4 w-4" />
+                            Link to Parent
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
@@ -359,6 +407,64 @@ export function CompaniesManagement() {
                 disabled={updatePlanMutation.isPending}
               >
                 Update Plan
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Link Subsidiary Dialog */}
+      <Dialog open={!!linkSubsidiaryCompany} onOpenChange={() => setLinkSubsidiaryCompany(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Link to Parent Company</DialogTitle>
+            <DialogDescription>
+              Make {linkSubsidiaryCompany?.name} a subsidiary of an enterprise company.
+              Only enterprise companies can have subsidiaries.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Parent Company</Label>
+              <Select value={selectedParentId} onValueChange={setSelectedParentId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a parent company" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">No parent (standalone)</span>
+                  </SelectItem>
+                  {enterpriseCompanies
+                    .filter(c => c.id !== linkSubsidiaryCompany?.id)
+                    .map((company) => (
+                      <SelectItem key={company.id} value={company.id}>
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4" />
+                          <span className="font-medium">{company.name}</span>
+                          <Badge className="bg-amber-500 text-white text-xs">Enterprise</Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              {enterpriseCompanies.filter(c => c.id !== linkSubsidiaryCompany?.id).length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No enterprise companies available. Upgrade a company to Enterprise to enable subsidiaries.
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setLinkSubsidiaryCompany(null)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => linkSubsidiaryMutation.mutate({ 
+                  companyId: linkSubsidiaryCompany?.id, 
+                  parentCompanyId: selectedParentId === "none" ? null : selectedParentId
+                })}
+                disabled={linkSubsidiaryMutation.isPending}
+              >
+                {selectedParentId === "none" ? "Remove Link" : "Link Company"}
               </Button>
             </div>
           </div>
