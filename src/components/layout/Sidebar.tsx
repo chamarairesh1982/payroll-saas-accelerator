@@ -37,6 +37,7 @@ interface NavItem {
 
 const mainNavItems: NavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/" },
+  { label: "My Payslips", icon: Receipt, href: "/my-payslips" },
   { label: "Employees", icon: Users, href: "/employees" },
   { label: "Time & Attendance", icon: Clock, href: "/attendance", featureFlag: "attendance_enabled" },
   { label: "Payroll", icon: DollarSign, href: "/payroll" },

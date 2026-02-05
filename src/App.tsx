@@ -27,6 +27,7 @@ import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import ActivityLog from "./pages/ActivityLog";
 import SuperAdmin from "./pages/SuperAdmin";
+import MyPayslips from "./pages/MyPayslips";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -77,6 +78,7 @@ function AppRoutes() {
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/activity-log" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
       <Route path="/super-admin" element={<ProtectedRoute><SuperAdmin /></ProtectedRoute>} />
+      <Route path="/my-payslips" element={<ProtectedRoute><MyPayslips /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
