@@ -42,6 +42,7 @@ export default function Auth() {
   const [activeTab, setActiveTab] = useState("login");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState(false);
 
   // Form states
   const [email, setEmail] = useState("");
@@ -137,7 +138,8 @@ export default function Auth() {
         setError(error.message);
       }
     } else {
-      navigate("/");
+      // Show email verification message instead of navigating
+      setSignupSuccess(true);
     }
   };
 
@@ -391,77 +393,105 @@ export default function Auth() {
                   </TabsContent>
 
                 <TabsContent value="signup" className="mt-0">
-                  <form onSubmit={handleSignup} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                  {signupSuccess ? (
+                    <div className="text-center py-4">
+                      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                        <CheckCircle2 className="h-6 w-6 text-primary" />
+                      </div>
+                      <h3 className="font-semibold text-lg mb-2">Check your email</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        We've sent a verification link to <strong>{email}</strong>. 
+                        Please click the link to verify your email and activate your account.
+                      </p>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setSignupSuccess(false);
+                          setActiveTab("login");
+                          setEmail("");
+                          setPassword("");
+                          setConfirmPassword("");
+                          setFirstName("");
+                          setLastName("");
+                        }}
+                        className="w-full"
+                      >
+                        Back to Sign In
+                      </Button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSignup} className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="firstName">First Name</Label>
+                          <Input
+                            id="firstName"
+                            placeholder="John"
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            disabled={isLoading}
+                            required
+                            className="h-11"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="lastName">Last Name</Label>
+                          <Input
+                            id="lastName"
+                            placeholder="Doe"
+                            value={lastName}
+                            onChange={(e) => setLastName(e.target.value)}
+                            disabled={isLoading}
+                            required
+                            className="h-11"
+                          />
+                        </div>
+                      </div>
                       <div className="space-y-2">
-                        <Label htmlFor="firstName">First Name</Label>
+                        <Label htmlFor="signup-email">Email</Label>
                         <Input
-                          id="firstName"
-                          placeholder="John"
-                          value={firstName}
-                          onChange={(e) => setFirstName(e.target.value)}
+                          id="signup-email"
+                          type="email"
+                          placeholder="you@company.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
                           disabled={isLoading}
                           required
                           className="h-11"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="lastName">Last Name</Label>
+                        <Label htmlFor="signup-password">Password</Label>
                         <Input
-                          id="lastName"
-                          placeholder="Doe"
-                          value={lastName}
-                          onChange={(e) => setLastName(e.target.value)}
+                          id="signup-password"
+                          type="password"
+                          placeholder="••••••••"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
                           disabled={isLoading}
                           required
                           className="h-11"
                         />
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-email">Email</Label>
-                      <Input
-                        id="signup-email"
-                        type="email"
-                        placeholder="you@company.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        disabled={isLoading}
-                        required
-                        className="h-11"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-password">Password</Label>
-                      <Input
-                        id="signup-password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        disabled={isLoading}
-                        required
-                        className="h-11"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="confirmPassword">Confirm Password</Label>
-                      <Input
-                        id="confirmPassword"
-                        type="password"
-                        placeholder="••••••••"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        disabled={isLoading}
-                        required
-                        className="h-11"
-                      />
-                    </div>
-                    <Button type="submit" className="w-full h-11" disabled={isLoading}>
-                      {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Create Account
-                    </Button>
-                  </form>
+                      <div className="space-y-2">
+                        <Label htmlFor="confirmPassword">Confirm Password</Label>
+                        <Input
+                          id="confirmPassword"
+                          type="password"
+                          placeholder="••••••••"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          disabled={isLoading}
+                          required
+                          className="h-11"
+                        />
+                      </div>
+                      <Button type="submit" className="w-full h-11" disabled={isLoading}>
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Create Account
+                      </Button>
+                    </form>
+                  )}
                 </TabsContent>
               </CardContent>
 
