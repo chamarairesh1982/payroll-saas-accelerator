@@ -23,7 +23,9 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useEmployees, useEmployee, departments, designations, banks } from "@/hooks/useEmployees";
+import { useEmployees, useEmployee, banks } from "@/hooks/useEmployees";
+import { useDepartments } from "@/hooks/useDepartments";
+import { useDesignations } from "@/hooks/useDesignations";
 
 const passwordSchema = z.preprocess(
   (val) => {
@@ -61,6 +63,8 @@ const EmployeeForm = () => {
 
   const { createEmployee, updateEmployee, isCreating, isUpdating } = useEmployees();
   const { data: existingEmployee, isLoading } = useEmployee(id);
+  const { departments, isLoading: isDepartmentsLoading } = useDepartments();
+  const { designations, isLoading: isDesignationsLoading } = useDesignations();
 
   const form = useForm<EmployeeFormData>({
     resolver: zodResolver(employeeSchema),
@@ -175,7 +179,7 @@ const EmployeeForm = () => {
     </div>
   );
 
-  if (isLoading && isEditing) {
+  if ((isLoading && isEditing) || isDepartmentsLoading || isDesignationsLoading) {
     return (
       <MainLayout>
         <div className="flex h-[50vh] items-center justify-center">
@@ -347,11 +351,15 @@ const EmployeeForm = () => {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {departments.map((dept) => (
-                          <SelectItem key={dept} value={dept}>
-                            {dept}
-                          </SelectItem>
-                        ))}
+                        {departments.length === 0 ? (
+                          <SelectItem value="__empty" disabled>No departments configured</SelectItem>
+                        ) : (
+                          departments.map((dept) => (
+                            <SelectItem key={dept.id} value={dept.name}>
+                              {dept.name}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -371,11 +379,15 @@ const EmployeeForm = () => {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {designations.map((des) => (
-                          <SelectItem key={des} value={des}>
-                            {des}
-                          </SelectItem>
-                        ))}
+                        {designations.length === 0 ? (
+                          <SelectItem value="__empty" disabled>No designations configured</SelectItem>
+                        ) : (
+                          designations.map((des) => (
+                            <SelectItem key={des.id} value={des.name}>
+                              {des.name}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
