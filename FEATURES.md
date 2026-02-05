@@ -173,14 +173,14 @@ This document outlines all implemented features for the Sri Lanka Payroll SaaS p
 - [x] **Email Verification** - ✅ Implemented - Blocks payroll approval for unverified emails
 - [x] **Audit Logging** - ✅ Implemented - Tracks payroll approval/payment, salary/tax changes via DB triggers
 - [x] **Payroll Immutability** - ✅ Implemented - Approved/paid payrolls are READ-ONLY at database level via RESTRICTIVE RLS policies
-- [ ] **Password Strength Validation** - Enforce strong passwords
-- [ ] **Session Management** - Token refresh, logout all devices
-- [ ] **Data Backup Strategy** - Automated backups
+- [x] **Password Strength Validation** - ✅ Implemented - 8+ chars with uppercase, lowercase, and number required everywhere
+- [x] **Session Management** - ✅ Implemented - "Sign out all devices" in Settings > Security tab
+- [x] **Rate Limiting** - ✅ Implemented - Edge functions protected against abuse (10 req/min)
+- [x] **Error Boundary** - ✅ Implemented - Global error boundary catches runtime errors gracefully
+- [ ] **Data Backup Strategy** - Handled by Lovable Cloud infrastructure (automatic daily backups)
 
 ### Medium Priority
 - [ ] **Two-Factor Authentication (2FA)** - Optional security layer
-- [ ] **API Rate Limiting** - Prevent abuse
-- [ ] **Error Monitoring** - Sentry or similar integration
 - [ ] **Performance Monitoring** - Track slow queries/requests
 - [ ] **Localization** - Sinhala/Tamil language support
 
